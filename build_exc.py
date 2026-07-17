@@ -18,7 +18,7 @@
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
-from openpyxl.chart import BarChart, LineChart, Reference, Series
+from openpyxl.chart import BarChart, LineChart, ScatterChart, Reference, Series
 from openpyxl.chart.label import DataLabelList
 from openpyxl.chart.series import SeriesLabel
 from openpyxl.chart.data_source import StrRef
@@ -27,7 +27,7 @@ from openpyxl.worksheet.datavalidation import DataValidation
 S_MET="Методика"; S_DASH="Дашборд"; S_PAR="Параметры"; S_IN="Ввод данных"
 S_PYR="Данные по годам"; S_TPL="Шаблон поставщика"
 S_PROD="Производительность"; S_CF="Денежный поток"; S_ANN="Расчёт аннуитета"
-S_CMP="Сравнение"; S_SENS="Чувствительность"; S_REF="Справочник"
+S_CMP="Сравнение"; S_ANL="Аналитика"; S_SENS="Чувствительность"; S_REF="Справочник"
 
 EXC=["D","E","F","G","H","I"]; NEXC=6
 H=10                                   # горизонт, лет (периоды 0..10)
@@ -216,19 +216,44 @@ CONS_Y={i:[bucket_m3[i]]*H for i in range(NEXC)}
 KFV_LIT=8760
 TPL_NAMES=[f"Поставщик {i+1}" for i in range(NEXC)]
 
-# --- 6 листов-шаблонов поставщиков со встроенной моделью ТО и Ремонтов ---
-# Итоговые строки (сводка): КТГ=11, ИТОГО ТОиР=16, ДТ=17, расходники=18, валюта=D5
+# --- 6 листов-шаблонов поставщиков: модели ТО и Ремонтов + полные вводимые списки ---
+# Сводка: КТГ=11, ИТОГО ТОиР=16, ДТ=17, расходники=18, валюта=D5
 TO_INT=[500,1000,2000,4000,5000]; TO_DUR=[10.2,9.4,12.4,7.8,5.4]; TO_PERS=[2,2,2,2,2]
 NARA=7000.0
-_to_dt=sum(NARA/TO_INT[k]*TO_DUR[k] for k in range(5))            # простои на ТО, ч/год
-_to_ch=sum(NARA/TO_INT[k]*TO_DUR[k]*TO_PERS[k] for k in range(5)) # ч·часы сервиса ТО
-RATE=50.0                                                          # ставка сервиса, вал/ч·час
-_to_serv=_to_ch*RATE/1000                                         # сервис ТО, тыс.вал/год
+_to_dt=sum(NARA/TO_INT[k]*TO_DUR[k] for k in range(5))
+_to_ch=sum(NARA/TO_INT[k]*TO_DUR[k]*TO_PERS[k] for k in range(5))
+RATE=50.0
+_to_serv=_to_ch*RATE/1000
+# полный каталог запчастей ТО: (наименование, цена за ед, кол-во на ТО, № ТО)
+TO_PARTS=[
+ ("Масляный фильтр",114.83,4,1),("Топливный фильтр",141.33,2,1),("Масло ДВС",6.87,130,1),
+ ("Фильтр управляющего контура",126,1,1),("Сливной фильтр",30.67,2,1),("Сливной фильтр насоса",201,3,1),
+ ("Смазка",12.24,200,1),("Топливный фильтр (ТО-2)",80.17,2,2),("Фильтр сапуна топл.бака",19.17,1,2),
+ ("Фильтр сапуна гидробака",19.17,2,2),("Гидравлический фильтр",344.33,3,2),("О-кольцо",24.5,3,2),
+ ("Воздушный фильтр",401.33,2,2),("О-кольцо (2)",9.83,2,2),("Масло редуктора поворота",6.89,60,2),
+ ("Масло механизма отбора мощн.",6.89,36,2),("Фильтр гидромотора поворота",102,2,2),
+ ("Прокладка клапанной крышки",4.17,12,3),("Фильтр салонный кондиц.",10.83,2,3),("Фильтр наружный кондиц.",51.33,2,3),
+ ("Масло конечной передачи",6.89,170,3),("Фильтр охлажд. жидкости",134.83,2,4),("Ремень генератора",28,1,4),
+ ("Ремень генератора (2)",157.5,1,4),("Ремень кондиционера",61,2,4),("Охлаждающая жидкость",2.36,190,4),
+ ("Гидравлическое масло",6.43,1300,5)]
+_cat_sum=sum(NARA/TO_INT[t-1]*q*p for _,p,q,t in TO_PARTS)/1000   # тыс/год
+# список узлов/видов ремонта: (наименование, нормо-часы)
+REM_ITEMS=[
+ ("Звёздочка (ходовая)",24),("Редуктор хода",24),("Натяжное колесо",24),("Гусеничная лента",36),
+ ("Гидромотор хода",12),("Поддерживающий каток",12),("Опорный каток",36),
+ ("Г.цилиндр стрелы",12),("Г.цилиндр стрелы (2)",12),("Г.цилиндр рукояти",8),("Г.цилиндр ковша",12),
+ ("Г.распределитель",36),("Г.распределитель (2)",36),("Г.насос управления",24),("Г.насос",36),
+ ("Г.мотор вентилятора",8),("Г.мотор поворота",24),("Поворотный круг",144),("Редуктор поворота",24),
+ ("ДВС (капремонт)",72),("Механизм отбора мощности",48)]
+
+# позиции строк
+CAT0=38; CATN=CAT0+len(TO_PARTS)-1; CORR=CATN+1                    # каталог ТО
+REMSEC=CORR+2; REMHDR=REMSEC+1; REM0=REMHDR+1; REMN=REM0+len(REM_ITEMS)-1; REMPLUG=REMN+1; NOTEROW=REMPLUG+2
 tpl={}
 for i in range(NEXC):
     ws=wb.create_sheet(TPL_NAMES[i]); ws.sheet_view.showGridLines=False
     title(ws,f"ШАБЛОН ДАННЫХ ПОСТАВЩИКА — ВАРИАНТ {i+1}",
-          "Модель ТО и Ремонтов (снизу вверх). Зелёные строки — авто; сводка тянется в «Данные по годам».",last="N")
+          "Модели ТО и Ремонтов с полными списками. Зелёное — авто; сводка тянется в «Данные по годам».",last="N")
     ws.column_dimensions["A"].width=2; ws.column_dimensions["B"].width=38; ws.column_dimensions["C"].width=11; ws.column_dimensions["D"].width=11
     for p in range(1,H+1): ws.column_dimensions[PCOLS[p]].width=10
     ws.freeze_panes="E7"
@@ -260,7 +285,7 @@ for i in range(NEXC):
             if value is not None: c.value=value
             c.fill=(Fr if green else Fi)
 
-    # ---- СВОДКА (тянется в модель) ----
+    # ---- СВОДКА ----
     section(ws,7,"СВОДКА ПО ГОДАМ (зелёное — авто из моделей ниже; тянется в расчёт)","B","N")
     yline(8,"Простои на ТО","ч/год",M,green=True,formula=lambda col:"$G$27")
     yline(9,"Простои в ремонтах","ч/год",M,green=True,formula=lambda col:f"{col}32")
@@ -276,11 +301,10 @@ for i in range(NEXC):
     yline(17,"Удельный расход ДТ","кг/час",M1,values=FUEL_Y[i],inp=True)
     yline(18,"Расходники на ковш","руб/м³",M2,values=CONS_Y[i],inp=True)
 
-    # ---- МОДЕЛЬ ТО (снизу вверх, постоянна по годам) ----
+    # ---- МОДЕЛЬ ТО ----
     section(ws,19,"РАСЧЁТ ТО (по интервалам обслуживания)","B","N")
     sline(20,"Годовая наработка","м/час",M,value=NARA)
-    hdr=["Вид ТО","интервал","длит.простоя","персонал","ТО/год","простой,ч","ч·час"]
-    for k,h in enumerate(hdr):
+    for k,h in enumerate(["Вид ТО","интервал","длит.простоя","персонал","ТО/год","простой,ч","ч·час"]):
         c=ws.cell(row=21,column=2+k,value=h); c.font=FHd; c.fill=Fh; c.border=BD; c.alignment=C
     for k in range(5):
         r=22+k
@@ -289,31 +313,62 @@ for i in range(NEXC):
         for cc in (3,4,5): ws.cell(row=r,column=cc).fill=Fi; ws.cell(row=r,column=cc).border=BD; ws.cell(row=r,column=cc).alignment=C; ws.cell(row=r,column=cc).number_format=M1
         ws.cell(row=r,column=6,value=f"=$E$20/C{r}"); ws.cell(row=r,column=7,value=f"=F{r}*D{r}"); ws.cell(row=r,column=8,value=f"=G{r}*E{r}")
         for cc in (6,7,8): ws.cell(row=r,column=cc).fill=Fr; ws.cell(row=r,column=cc).border=BD; ws.cell(row=r,column=cc).alignment=C; ws.cell(row=r,column=cc).number_format=M1; ws.cell(row=r,column=cc).font=FRz
-    # итоги ТО
     ws.cell(row=27,column=2,value="Итого простои / ч·часы ТО").font=FRz; ws.cell(row=27,column=2).border=BD
     ws.cell(row=27,column=7,value="=SUM(G22:G26)"); ws.cell(row=27,column=8,value="=SUM(H22:H26)")
     for cc in (7,8): ws.cell(row=27,column=cc).fill=Fr; ws.cell(row=27,column=cc).border=BD; ws.cell(row=27,column=cc).number_format=M1; ws.cell(row=27,column=cc).font=FRz
     _base=min(TOIR_Y[i]); _parts=round(_base-_to_serv,3)
-    sline(28,"Затраты на запчасти ТО","тыс/год",M,value=_parts)
+    sline(28,"Затраты на запчасти ТО (из каталога)","тыс/год",M,formula=f"SUM(F{CAT0}:F{CORR})",green=True)
     sline(29,"Ставка сервиса","вал/ч·час",M,value=RATE)
     sline(30,"Сервис ТО (авто) = ч·часы × ставка","тыс/год",M,formula="$H$27*$E$29/1000",green=True)
 
-    # ---- МОДЕЛЬ РЕМОНТОВ (по годам) ----
+    # ---- МОДЕЛЬ РЕМОНТОВ ----
     section(ws,31,"РАСЧЁТ РЕМОНТОВ (график по годам)","B","N")
     rem_dt=[round(max(0,KFV_LIT*(1-KTG_Y[i][p])-_to_dt),2) for p in range(H)]
     rem_cap=[round(TOIR_Y[i][p]-_base,3) for p in range(H)]
     yline(32,"Простои в ремонтах","ч/год",M,values=rem_dt,inp=True)
     yline(33,"Текущие ремонты","тыс/год",M,values=[0]*H,inp=True)
-    yline(34,"Капитальные ремонты (ППР)","тыс/год",M,values=rem_cap,inp=True)
+    yline(34,"Капитальные ремонты (ППР) — из списка","тыс/год",M,green=True,
+          formula=lambda col:f"SUM({col}{REM0}:{col}{REMPLUG})")
     yline(35,"Сервис ремонтов (трудозатраты)","тыс/год",M,values=[0]*H,inp=True)
 
+    # ---- ПОЛНЫЙ КАТАЛОГ ЗАПЧАСТЕЙ ТО ----
+    section(ws,36,"КАТАЛОГ ЗАПЧАСТЕЙ ТО (заполняет подрядчик)","B","N")
+    for k,h in enumerate(["Наименование","цена за ед","кол-во/ТО","№ ТО","стоимость,тыс/год"]):
+        c=ws.cell(row=37,column=2+k,value=h); c.font=FHd; c.fill=Fh; c.border=BD; c.alignment=C
+    for k,(nm,price,qty,tt) in enumerate(TO_PARTS):
+        r=CAT0+k
+        ws.cell(row=r,column=2,value=nm).font=FN; ws.cell(row=r,column=2).border=BD; ws.cell(row=r,column=2).alignment=L
+        ws.cell(row=r,column=3,value=price); ws.cell(row=r,column=4,value=qty); ws.cell(row=r,column=5,value=tt)
+        for cc in (3,4,5): ws.cell(row=r,column=cc).fill=Fi; ws.cell(row=r,column=cc).border=BD; ws.cell(row=r,column=cc).alignment=C; ws.cell(row=r,column=cc).number_format=M2
+        f=ws.cell(row=r,column=6,value=f"=($E$20/INDEX($C$22:$C$26,E{r}))*D{r}*C{r}/1000")
+        f.fill=Fr; f.border=BD; f.alignment=C; f.number_format=M2; f.font=FRz
+    ws.cell(row=CORR,column=2,value="Корректировка (поглощения/прочее)").font=FN; ws.cell(row=CORR,column=2).border=BD; ws.cell(row=CORR,column=2).alignment=L
+    cval=ws.cell(row=CORR,column=6,value=round(_parts-_cat_sum,3)); cval.fill=Fi; cval.border=BD; cval.alignment=C; cval.number_format=M2
+
+    # ---- ПОЛНЫЙ СПИСОК УЗЛОВ / КАПРЕМОНТОВ ----
+    section(ws,REMSEC,"СПИСОК УЗЛОВ И КАПРЕМОНТОВ (заполняет подрядчик, стоимость по годам)","B","N")
+    ws.cell(row=REMHDR,column=2,value="Узел / вид ремонта").font=FHd; ws.cell(row=REMHDR,column=2).fill=Fh; ws.cell(row=REMHDR,column=2).border=BD; ws.cell(row=REMHDR,column=2).alignment=C
+    ws.cell(row=REMHDR,column=3,value="нормо-час").font=FHd; ws.cell(row=REMHDR,column=3).fill=Fh; ws.cell(row=REMHDR,column=3).border=BD; ws.cell(row=REMHDR,column=3).alignment=C
+    for p in range(1,H+1):
+        c=ws.cell(row=REMHDR,column=4+p,value=f"год {p}"); c.font=FHd; c.fill=Fh; c.border=BD; c.alignment=C
+    for k,(nm,nh) in enumerate(REM_ITEMS):
+        r=REM0+k
+        ws.cell(row=r,column=2,value=nm).font=FN; ws.cell(row=r,column=2).border=BD; ws.cell(row=r,column=2).alignment=L
+        ws.cell(row=r,column=3,value=nh); ws.cell(row=r,column=3).fill=Fi; ws.cell(row=r,column=3).border=BD; ws.cell(row=r,column=3).alignment=C; ws.cell(row=r,column=3).number_format=M
+        for p in range(1,H+1):
+            c=ws.cell(row=r,column=4+p); c.fill=Fi; c.border=BD; c.alignment=C; c.number_format=M
+    # строка-плуг (укрупнённый капремонт по годам — пример)
+    ws.cell(row=REMPLUG,column=2,value="Прочие/укрупнённо (капремонт)").font=FN; ws.cell(row=REMPLUG,column=2).border=BD; ws.cell(row=REMPLUG,column=2).alignment=L
+    for p in range(1,H+1):
+        c=ws.cell(row=REMPLUG,column=4+p,value=rem_cap[p-1]); c.fill=Fi; c.border=BD; c.alignment=C; c.number_format=M
+
     tpl[i]={"sheet":TPL_NAMES[i],"ktg":11,"itogo":16,"fuel":17,"cons":18,"cur":"$D$5"}
-    ws.merge_cells("B37:N37")
-    nt=ws["B37"]; nt.value=("Заполняйте модели ТО (интервалы, простои, запчасти) и Ремонтов (простои, текущие/капитальные ремонты, "
-     "сервис по годам). КТГ и ИТОГО ТОиР пересчитаются автоматически; сводка «Данные по годам» и весь расчёт обновятся сами. "
-     "Пример заполнен реальными данными «в расчёте» (капремонты разнесены по годам).")
+    ws.merge_cells(f"B{NOTEROW}:N{NOTEROW}")
+    nt=ws[f"B{NOTEROW}"]; nt.value=("Заполняйте: каталог запчастей ТО (цена, кол-во, № ТО) и список узлов/капремонтов (стоимость по годам). "
+     "КТГ, затраты ТО и капремонты пересчитаются снизу вверх; сводка «Данные по годам» и весь расчёт обновятся автоматически. "
+     "Строка «Корректировка» и «Прочие/укрупнённо» — балансирующие, замените детализацией.")
     nt.font=Font(size=9,italic=True,color="808080"); nt.alignment=L
-print("Листы-шаблоны поставщиков (с моделью ТО/Ремонтов):",NEXC)
+print("Листы-шаблоны с полными списками ТО/Ремонтов:",NEXC)
 
 # --- СВОДКА «Данные по годам» (тянет из листов-шаблонов) ---
 wy=wb.create_sheet(S_PYR); wy.sheet_view.showGridLines=False
@@ -833,6 +888,114 @@ ws.merge_cells(f"B{ur}:H{ur}"); ws[f"B{ur}"].alignment=L
 print("Чувствительность готова")
 
 # ================================================================= #
+# АНАЛИТИКА (расширенный анализ результатов, лучшие практики)
+# ================================================================= #
+wan=wb.create_sheet(S_ANL); wan.sheet_view.showGridLines=False
+title(wan,"РАСШИРЕННАЯ АНАЛИТИКА РЕЗУЛЬТАТОВ","Многокритериальная оценка, разложение затрат, диапазон риска, эффективность.",last="K")
+wan.column_dimensions["A"].width=2; wan.column_dimensions["B"].width=40; wan.column_dimensions["C"].width=10
+for cc in EXC: wan.column_dimensions[cc].width=15
+NHR=4
+wan[f"B{NHR}"]="Показатель"; wan[f"B{NHR}"].font=FHd; wan[f"B{NHR}"].fill=Fh; wan[f"B{NHR}"].border=BD; wan[f"B{NHR}"].alignment=C
+wan[f"C{NHR}"]="Ед."; wan[f"C{NHR}"].font=FHd; wan[f"C{NHR}"].fill=Fh; wan[f"C{NHR}"].border=BD; wan[f"C{NHR}"].alignment=C
+for i,cc in enumerate(EXC):
+    c=wan[f"{cc}{NHR}"]; c.value=f"='{S_IN}'!{cc}{irow['name']}"; c.font=FHd; c.fill=Fh; c.border=BD; c.alignment=C
+an={}; arow=NHR+1
+def aline(key,label,unit,fni,fmt=M2,best="min",res=False):
+    global arow; an[key]=arow
+    b=wan[f"B{arow}"]; b.value=label; b.border=BD; b.alignment=L; b.font=(FRz if res else FN)
+    wan[f"C{arow}"]=unit; wan[f"C{arow}"].font=FU; wan[f"C{arow}"].border=BD; wan[f"C{arow}"].alignment=C
+    for i,cc in enumerate(EXC):
+        c=wan[f"{cc}{arow}"]; c.value="="+fni(i); c.number_format=fmt; c.border=BD; c.alignment=Rr; c.font=(FRz if res else FN)
+        if res: c.fill=Fr
+    arow+=1
+def asec2(t):
+    global arow; section(wan,arow,t,"B","I"); arow+=1
+def acol(i): return EXC[i]
+def A(key,i): return annref(key,acol(i))
+def ktg_avg(i): return f"AVERAGE('{S_PYR}'!E{pyr_ktg[i]}:N{pyr_ktg[i]})"
+
+asec2("МНОГОКРИТЕРИАЛЬНАЯ ОЦЕНКА (levelized cost + драйверы)")
+aline("price","Цена (CAPEX)","тыс.руб",lambda i:prodref('price_rub',acol(i)),M)
+aline("prod","Средний годовой объём","тыс.м³",lambda i:A('avgprod',i),M)
+aline("ktg","КТГ средний","коэф.",lambda i:ktg_avg(i),P1)
+aline("m3","Аннуитет","руб/м³",lambda i:A('u_tot',i),M2,res=True)
+aline("t","Аннуитет","руб/т",lambda i:A('t_tot',i),M2)
+aline("npv","NPV стоимости владения","тыс.руб",lambda i:A('n_tot',i),M)
+aline("s_cap","Доля CAPEX","%",lambda i:f"{A('u_inv',i)}/{A('u_tot',i)}",P1)
+aline("s_fuel","Доля топлива","%",lambda i:f"{A('u_fuel',i)}/{A('u_tot',i)}",P1)
+aline("s_maint","Доля ТОиР","%",lambda i:f"{A('u_maint',i)}/{A('u_tot',i)}",P1)
+m3rng=f"D{an['m3']}:I{an['m3']}"
+aline("rank","Место в рейтинге","",lambda i:f"RANK({acol(i)}{an['m3']},{m3rng},1)",M,res=True)
+
+asec2("РАЗЛОЖЕНИЕ ПРЕВЫШЕНИЯ АННУИТЕТА НАД ЛУЧШИМ (руб/м³)")
+def dvs(key): return lambda i:f"{A(key,i)}-MIN(D{ar[key]}:I{ar[key]})"
+aline("d_inv","Δ инвестиции",  "руб/м³",dvs('u_inv'),M2)
+aline("d_fuel","Δ топливо",    "руб/м³",dvs('u_fuel'),M2)
+aline("d_maint","Δ ТОиР",       "руб/м³",dvs('u_maint'),M2)
+aline("d_pers","Δ персонал",   "руб/м³",dvs('u_pers'),M2)
+aline("d_tax","Δ налог (щит)", "руб/м³",dvs('u_tax'),M2)
+aline("d_tot","ИТОГО превышение над лучшим","руб/м³",
+      lambda i:f"{acol(i)}{an['m3']}-MIN({m3rng})",M2,res=True)
+
+asec2("ДИАПАЗОН РИСКА АННУИТЕТА (руб/м³)")
+# fixed = инвест+ТОиР+персонал+налог; var = топливо+ковш
+def fixed(i): return f"({A('u_inv',i)}+{A('u_maint',i)}+{A('u_pers',i)}+{A('u_tax',i)})"
+def var(i): return f"({A('u_fuel',i)}+{A('u_bucket',i)})"
+aline("opt","Оптимистичный (КТГ +10%, ДТ −20%)","руб/м³",
+      lambda i:f"{fixed(i)}/1.1+{var(i)}-0.2*{A('u_fuel',i)}",M2)
+aline("base","Базовый","руб/м³",lambda i:A('u_tot',i),M2,res=True)
+aline("pess","Пессимистичный (КТГ −10%, ДТ +20%)","руб/м³",
+      lambda i:f"{fixed(i)}/0.9+{var(i)}+0.2*{A('u_fuel',i)}",M2)
+aline("band","Ширина диапазона (риск)","руб/м³",
+      lambda i:f"{acol(i)}{an['pess']}-{acol(i)}{an['opt']}",M2)
+
+asec2("ЭФФЕКТИВНОСТЬ И ЦЕННОСТЬ ГОТОВНОСТИ")
+aline("fuel_kgm3","Топливоёмкость","кг/м³",lambda i:f"{A('u_fuel',i)}/{pc('fuel_p')}",M2,best="min")
+aline("fuel_rub","Топливо на м³","руб/м³",lambda i:A('u_fuel',i),M2)
+aline("val_ktg","Эффект +1 п.п. КТГ на аннуитет","руб/м³",
+      lambda i:f"-{fixed(i)}*0.01/{ktg_avg(i)}",M2)
+
+# вывод (формульный)
+arow+=1
+names_rng=f"D{NHR}:I{NHR}"
+wan[f"B{arow}"]="ВЫВОД:"; wan[f"B{arow}"].font=Font(bold=True,size=12,color=DARK)
+wan.merge_cells(f"C{arow}:I{arow}")
+concl=wan[f"C{arow}"]
+concl.value=(f'="Лучший по удельному TCO: "&INDEX({names_rng},MATCH(MIN({m3rng}),{m3rng},0))'
+             f'&" ("&TEXT(MIN({m3rng}),"0.00")&" руб/м³, "&TEXT(MIN(D{an["t"]}:I{an["t"]}),"0.00")&" руб/т). "'
+             f'&"Отрыв от худшего: "&TEXT(MAX({m3rng})-MIN({m3rng}),"0.00")&" руб/м³."')
+concl.font=Font(bold=True,size=11,color="006100"); concl.fill=Fb; concl.alignment=L
+for cc in "CDEFGHI": wan[f"{cc}{arow}"].border=BD
+concl_row=arow; arow+=2
+# лучшие практики (пояснение метода)
+wan[f"B{arow}"]="Метод (лучшие практики):"; wan[f"B{arow}"].font=FB; arow+=1
+for t in ["Levelized cost — приведённые затраты на единицу продукции (руб/м³, руб/т) уравнивают машины с разной ценой и производительностью.",
+          "Многокритериальная оценка — не только цена, но и структура затрат, КТГ, топливоёмкость.",
+          "Разложение над лучшим — показывает, за счёт каких статей вариант дороже (управляемость).",
+          "Диапазон риска — устойчивость выбора к колебаниям КТГ и цены топлива (сценарии P-).",
+          "Ценность готовности — сколько руб/м³ даёт рост КТГ на 1 п.п. (обоснование сервисного контракта)."]:
+    wan.merge_cells(f"B{arow}:K{arow}"); wan[f"B{arow}"]="•  "+t; wan[f"B{arow}"].font=FU; wan[f"B{arow}"].alignment=L; arow+=1
+
+# диаграммы
+# 1) scatter: производительность vs аннуитет
+sc=ScatterChart(); sc.title="Аннуитет vs производительность"; sc.height=8; sc.width=12
+sc.x_axis.title="Годовой объём, тыс.м³"; sc.y_axis.title="Аннуитет, руб/м³"; sc.x_axis.delete=False; sc.y_axis.delete=False
+xref=Reference(wan,min_col=4,min_row=an['prod'],max_col=9,max_row=an['prod'])
+yref=Reference(wan,min_col=4,min_row=an['m3'],max_col=9,max_row=an['m3'])
+ser=Series(yref,xref,title="варианты"); ser.marker.symbol="circle"; ser.marker.size=8; ser.graphicalProperties.line.noFill=True
+sc.series.append(ser); sc.legend=None
+wan.add_chart(sc,"K4")
+# 2) диапазон риска (опт/база/песс)
+rc=BarChart(); rc.type="col"; rc.title="Диапазон риска аннуитета, руб/м³"; rc.height=8; rc.width=13; rc.y_axis.title="руб/м³"
+cats=Reference(wan,min_col=4,min_row=NHR,max_col=9,max_row=NHR)
+for key,lbl in [("opt","оптимистичный"),("base","базовый"),("pess","пессимистичный")]:
+    ref=Reference(wan,min_col=4,min_row=an[key],max_col=9,max_row=an[key])
+    s=Series(ref,title=lbl); rc.series.append(s)
+rc.set_categories(cats)
+wan.add_chart(rc,"K22")
+print("Аналитика готова")
+
+# ================================================================= #
 # СПРАВОЧНИК
 # ================================================================= #
 wr=wb.create_sheet(S_REF); wr.sheet_view.showGridLines=False
@@ -904,7 +1067,8 @@ blocks=[
         "ТО (интервалы обслуживания → простои, запчасти, сервис) и Ремонтов (простои, текущие и капитальные ремонты, "
         "сервис по годам) — КТГ и ИТОГО ТОиР считаются автоматически снизу вверх. Сводка «Данные по годам» тянет итоги "
         "сама → авторасчёт «Производительность», «Денежный поток», «Расчёт аннуитета» → «Дашборд», «Сравнение», "
-        "«Чувствительность». Правки — только в листах «Поставщик N».",65),
+        "«Аналитика» (многокритериальная оценка, разложение над лучшим, диапазон риска, ценность готовности), "
+        "«Чувствительность». Правки — только в листах «Поставщик N».",70),
  (14,"h","6. ДОПУЩЕНИЯ"),
  (15,"t","• Машины сравниваются в одном классе и одной задаче; разница в производительности учтена через руб/м³.",None),
  (16,"t","• Капремонты можно учитывать усреднённо (в ТОиР) или разнести по графику (раздел G ввода).",None),
@@ -924,7 +1088,7 @@ wme.cell(row=lg+2,column=2).fill=Fr; wme.cell(row=lg+2,column=2).border=BD
 wme.cell(row=lg+2,column=3,value="зелёные ячейки — итоговые показатели / лучший вариант").font=FN
 
 # порядок листов и сохранение
-order=[S_MET,S_DASH,S_PAR,S_IN]+TPL_NAMES+[S_PYR,S_PROD,S_CF,S_ANN,S_CMP,S_SENS,S_REF]
+order=[S_MET,S_DASH,S_PAR,S_IN]+TPL_NAMES+[S_PYR,S_PROD,S_CF,S_ANN,S_CMP,S_ANL,S_SENS,S_REF]
 wb._sheets.sort(key=lambda s:order.index(s.title))
 wb.active=1     # Дашборд
 wb.calculation.fullCalcOnLoad=True
