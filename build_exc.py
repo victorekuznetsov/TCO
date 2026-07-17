@@ -193,7 +193,7 @@ def inp(key,col): return f"'{S_IN}'!{col}{irow[key]}"
 print("Ввод:",len(irow))
 
 # ================================================================= #
-# ДАННЫЕ ПО ГОДАМ (КТГ и ТОиР — погодовой ввод, шаблон поставщика)
+# ЛИСТЫ-ШАБЛОНЫ ПОСТАВЩИКОВ (по одному на машину) + СВОДКА «Данные по годам»
 # ================================================================= #
 # Реальные данные "в расчёте" из исходной модели (АО «Полюс»), 10 лет
 KTG_Y={
@@ -203,26 +203,84 @@ KTG_Y={
  3:[0.854652,0.728327,0.755123,0.694534,0.693404,0.742737,0.717152,0.773228,0.66797,0.757295],
  4:[0.854652,0.728327,0.755123,0.694534,0.693404,0.742737,0.717152,0.773228,0.66797,0.757295],
  5:[0.854652,0.728327,0.755123,0.694534,0.693404,0.742737,0.717152,0.773228,0.66797,0.757295]}
-TOIR_Y={  # тыс. валюты / год (валюта ниже), включает ТО, текущие и капитальные ремонты, сервис
+TOIR_Y={  # тыс. валюты / год; включает ТО, текущие и капитальные ремонты, сервис
  0:[100.666,141.1002,633.3182,1430.6176,211.666,673.7523,141.1002,1390.1835,784.7523,100.666],
  1:[100.666,141.1002,633.3182,1430.6176,211.666,673.7523,141.1002,1390.1835,784.7523,100.666],
  2:[160.7578,178.0231,1021.9348,178.0231,291.7228,1039.2001,160.7578,178.0231,1021.9348,308.9881],
  3:[337.7887,530.6868,1544.312,531.869,658.6154,1741.348,442.6356,786.9538,1587.0,467.2187],
  4:[160.7578,178.0231,1021.9348,178.0231,291.7228,1039.2001,160.7578,178.0231,1021.9348,308.9881],
  5:[170.997,177.397,170.997,177.397,310.197,177.397,2540.277,177.397,170.997,2718.997]}
-TOIR_CUR=["USD","USD","USD","USD","USD","USD"]  # валюта данных ТОиР
-FUEL_Y={i:[fuel_kgh[i]]*H for i in range(NEXC)}   # расход ДТ кг/час по годам (пример — постоянный)
-CONS_Y={i:[bucket_m3[i]]*H for i in range(NEXC)}  # расходники ковша руб/м³ по годам
+TOIR_CUR=["USD","USD","USD","USD","USD","USD"]
+FUEL_Y={i:[fuel_kgh[i]]*H for i in range(NEXC)}
+CONS_Y={i:[bucket_m3[i]]*H for i in range(NEXC)}
+KFV_LIT=8760
+TPL_NAMES=[f"Поставщик {i+1}" for i in range(NEXC)]
 
+# --- 6 листов-шаблонов поставщиков ---
+# структура рядов (одинаковая): КТГ(авто)=10, ИТОГО ТОиР(авто)=17, ДТ=18, расходники=19, валюта=D5
+tpl={}
+for i in range(NEXC):
+    ws=wb.create_sheet(TPL_NAMES[i]); ws.sheet_view.showGridLines=False
+    title(ws,f"ШАБЛОН ДАННЫХ ПОСТАВЩИКА — ВАРИАНТ {i+1}",
+          "Заполняется поставщиком/аналитиком. Зелёные строки (КТГ, ИТОГО ТОиР) — авто; тянутся в «Данные по годам».",last="N")
+    ws.column_dimensions["A"].width=2; ws.column_dimensions["B"].width=40; ws.column_dimensions["C"].width=11; ws.column_dimensions["D"].width=9
+    for p in range(1,H+1): ws.column_dimensions[PCOLS[p]].width=10
+    ws.freeze_panes="E7"
+    ws["B4"]="Экскаватор:"; ws["B4"].font=FB
+    ws.merge_cells("E4:N4"); ws["E4"]=f"='{S_IN}'!{EXC[i]}{irow['name']}"; ws["E4"].font=Font(bold=True,color=DARK); ws["E4"].alignment=L
+    ws["B5"]="Валюта затрат ТОиР:"; ws["B5"].font=FN
+    cu=ws["D5"]; cu.value=TOIR_CUR[i]; cu.fill=Fi; cu.border=BD; cu.alignment=C; cu.font=FB
+    dvt=DataValidation(type="list",formula1='"CNY,USD,EUR,RUB"'); ws.add_data_validation(dvt); dvt.add("D5")
+    # шапка годов
+    ws["B6"]="Показатель"; ws["C6"]="Ед."
+    for cc in ("B","C","D"):
+        ws[f"{cc}6"].font=FHd; ws[f"{cc}6"].fill=Fh; ws[f"{cc}6"].border=BD; ws[f"{cc}6"].alignment=C
+    for p in range(1,H+1):
+        c=ws[f"{PCOLS[p]}6"]; c.value=f"год {p}"; c.font=FHd; c.fill=Fh; c.border=BD; c.alignment=C
+    def rowdef(r,label,unit,fmt,fill_input=True,green=False,formula=None,values=None):
+        b=ws[f"B{r}"]; b.value=label; b.border=BD; b.alignment=L; b.font=(FRz if green else FN)
+        ws[f"C{r}"]=unit; ws[f"C{r}"].font=FU; ws[f"C{r}"].border=BD; ws[f"C{r}"].alignment=C
+        for p in range(1,H+1):
+            col=PCOLS[p]; c=ws[f"{col}{r}"]; c.border=BD; c.alignment=C; c.number_format=fmt; c.font=(FRz if green else FN)
+            if formula: c.value="="+formula(col); c.fill=Fr
+            else:
+                if values is not None: c.value=values[p-1]
+                if fill_input: c.fill=Fi
+    section(ws,7,"ГОТОВНОСТЬ (простои по годам → КТГ автоматически)","B","N")
+    # простои: для примера весь простой отнесён к ремонтам, чтобы воспроизвести КТГ
+    dtrem=[round(KFV_LIT*(1-KTG_Y[i][p]),1) for p in range(H)]
+    rowdef(8,"Простои на ТО","ч/год",M,values=[0]*H)
+    rowdef(9,"Простои в ремонтах","ч/год",M,values=dtrem)
+    rowdef(10,"Ежесменный осмотр","ч/год",M,values=[0]*H)
+    rowdef(11,"КТГ (авто) = (8760 − простои)/8760","коэф.",P1,green=True,
+           formula=lambda col:f"({pc('kfv')}-{col}8-{col}9-{col}10)/{pc('kfv')}")
+    section(ws,12,"ЗАТРАТЫ НА ТОиР И СЕРВИС (в валюте D5, тыс/год)","B","N")
+    rowdef(13,"ТО (включая смазочные)","тыс/год",M,values=TOIR_Y[i])  # пример: весь ТОиР в одну строку
+    rowdef(14,"Текущие ремонты","тыс/год",M,values=[0]*H)
+    rowdef(15,"Капитальные ремонты (ППР)","тыс/год",M,values=[0]*H)
+    rowdef(16,"Сервис (трудозатраты)","тыс/год",M,values=[0]*H)
+    rowdef(17,"ИТОГО ТОиР (авто) → в сводку","тыс/год",M,green=True,
+           formula=lambda col:f"SUM({col}13:{col}16)")
+    section(ws,18,"ТОПЛИВО И РАСХОДНИКИ (по годам)","B","N")
+    rowdef(19,"Удельный расход ДТ","кг/час",M1,values=FUEL_Y[i])
+    rowdef(20,"Расходники на ковш","руб/м³",M2,values=CONS_Y[i])
+    # переопределим ссылки строк (сдвиг: КТГ=11, ИТОГО=17, ДТ=19, расходники=20)
+    tpl[i]={"sheet":TPL_NAMES[i],"ktg":11,"itogo":17,"fuel":19,"cons":20,"cur":"$D$5"}
+    ws.merge_cells("B22:N22")
+    nt=ws["B22"]; nt.value=("Пример заполнен реальными данными «в расчёте». Замените своими: детализируйте простои и статьи ТОиР — "
+     "КТГ и ИТОГО пересчитаются, а сводка «Данные по годам» и весь расчёт обновятся автоматически.")
+    nt.font=Font(size=9,italic=True,color="808080"); nt.alignment=L
+print("Листы-шаблоны поставщиков:",NEXC)
+
+# --- СВОДКА «Данные по годам» (тянет из листов-шаблонов) ---
 wy=wb.create_sheet(S_PYR); wy.sheet_view.showGridLines=False
-title(wy,"ПОГОДОВЫЕ ДАННЫЕ ЭКСПЛУАТАЦИИ","КТГ, ТОиР, расход ДТ и расходники — по годам (из файла поставщика «Данные_Экскаватор»).",last="N")
+title(wy,"ПОГОДОВЫЕ ДАННЫЕ ЭКСПЛУАТАЦИИ (СВОДКА)","Автоматически из листов «Поставщик 1…6». Правьте данные в тех листах, здесь — только просмотр.",last="N")
 wy.column_dimensions["A"].width=2; wy.column_dimensions["B"].width=34; wy.column_dimensions["C"].width=11; wy.column_dimensions["D"].width=9
 for p in range(1,H+1): wy.column_dimensions[PCOLS[p]].width=10
 wy.freeze_panes="E6"
 wy.merge_cells("B4:N4")
-ins=wy["B4"]; ins.value=("Как заполнять: из файла поставщика «Данные_Экскаватор» скопируйте строку 7 (КТГ), строку 13 "
- "(Затраты на ТО и ремонты, тыс.$/год), строку 48 (расход ДТ) и расходники — вставьте в жёлтые ячейки блока. "
- "Затраты «рваные»: годы капремонтов дают всплеск (учитывается дисконтированием). Пустой бланк — лист «Шаблон поставщика».")
+ins=wy["B4"]; ins.value=("Эти значения ТЯНУТСЯ из листов-шаблонов «Поставщик 1…6» (КТГ и ИТОГО ТОиР — авто). "
+ "Чтобы изменить данные по машине — откройте её лист-шаблон и правьте жёлтые ячейки; сводка и расчёт обновятся сами.")
 ins.font=Font(size=9,italic=True,color=ACC); ins.alignment=L; ins.fill=Fa
 YHR=5
 wy[f"B{YHR}"]="Показатель"; wy[f"C{YHR}"]="Ед."; wy[f"D{YHR}"]="Валюта"
@@ -230,115 +288,36 @@ for cc in ("B","C","D"):
     wy[f"{cc}{YHR}"].font=FHd; wy[f"{cc}{YHR}"].fill=Fh; wy[f"{cc}{YHR}"].border=BD; wy[f"{cc}{YHR}"].alignment=C
 for p in range(1,H+1):
     c=wy[f"{PCOLS[p]}{YHR}"]; c.value=f"год {p}"; c.font=FHd; c.fill=Fh; c.border=BD; c.alignment=C
-
 pyr_ktg={}; pyr_toir={}; pyr_cur={}; pyr_fuel={}; pyr_cons={}
 yr=YHR+1
-def yrow(store,i,label,unit,data,fmt,cur=None):
+def yrow_pull(store,i,label,unit,tkey,fmt,cur=False):
     global yr
     store[i]=yr
     wy[f"B{yr}"]=label; wy[f"B{yr}"].font=FN; wy[f"B{yr}"].border=BD; wy[f"B{yr}"].alignment=L
     wy[f"C{yr}"]=unit; wy[f"C{yr}"].font=FU; wy[f"C{yr}"].border=BD; wy[f"C{yr}"].alignment=C
-    if cur is not None:
-        pyr_cur[i]=yr; cu=wy[f"D{yr}"]; cu.value=cur; cu.fill=Fi; cu.border=BD; cu.alignment=C; cu.font=FB
+    if cur:
+        pyr_cur[i]=yr; cu=wy[f"D{yr}"]; cu.value=f"='{tpl[i]['sheet']}'!{tpl[i]['cur']}"
+        cu.fill=Fr; cu.border=BD; cu.alignment=C; cu.font=FB
     for p in range(1,H+1):
-        c=wy[f"{PCOLS[p]}{yr}"]; c.value=data[i][p-1]; c.fill=Fi; c.border=BD; c.number_format=fmt; c.alignment=C; c.font=FN
+        c=wy[f"{PCOLS[p]}{yr}"]; c.value=f"='{tpl[i]['sheet']}'!{PCOLS[p]}{tpl[i][tkey]}"
+        c.fill=Fr; c.border=BD; c.number_format=fmt; c.alignment=C; c.font=FN
     yr+=1
 for i in range(NEXC):
     wy.merge_cells(f"B{yr}:N{yr}")
     hc=wy[f"B{yr}"]; hc.value=f"=\"Вариант {i+1}:  \"&'{S_IN}'!{EXC[i]}{irow['name']}"; hc.font=FSec; hc.alignment=L
     for col in range(2,15): wy.cell(row=yr,column=col).fill=Fm
     yr+=1
-    yrow(pyr_ktg,i,"КТГ (техготовность)","коэф.",KTG_Y,P1)
-    yrow(pyr_toir,i,"Затраты на ТОиР и сервис","тыс.вал/г",TOIR_Y,M,cur=TOIR_CUR[i])
-    yrow(pyr_fuel,i,"Удельный расход ДТ","кг/час",FUEL_Y,M1)
-    yrow(pyr_cons,i,"Расходники на ковш","руб/м³",CONS_Y,M2)
-dvc=DataValidation(type="list",formula1='"CNY,USD,EUR,RUB"',allow_blank=False); wy.add_data_validation(dvc)
-for i in range(NEXC): dvc.add(f"D{pyr_cur[i]}")
+    yrow_pull(pyr_ktg,i,"КТГ (техготовность)","коэф.","ktg",P1)
+    yrow_pull(pyr_toir,i,"Затраты на ТОиР и сервис","тыс.вал/г","itogo",M,cur=True)
+    yrow_pull(pyr_fuel,i,"Удельный расход ДТ","кг/час","fuel",M1)
+    yrow_pull(pyr_cons,i,"Расходники на ковш","руб/м³","cons",M2)
 _PYR_ROW={"ktg":pyr_ktg,"toir":pyr_toir,"fuel":pyr_fuel,"cons":pyr_cons}
 def pyr(kind,i,p): return f"'{S_PYR}'!{PCOLS[p]}{_PYR_ROW[kind][i]}"
 def pyr_cur_ref(i): return f"'{S_PYR}'!$D${pyr_cur[i]}"
 def toir_rate(i):
     cur=pyr_cur_ref(i)
     return f'IF({cur}="CNY",{pc("cny")},IF({cur}="USD",{pc("usd")},IF({cur}="EUR",{pc("eur")},1)))'
-print("Данные по годам: 4 строки/вариант")
-
-# ================================================================= #
-# ШАБЛОН ПОСТАВЩИКА (пустой бланк для сбора данных, 1 машина)
-# ================================================================= #
-wt=wb.create_sheet(S_TPL); wt.sheet_view.showGridLines=False
-title(wt,"ШАБЛОН ДАННЫХ ПОСТАВЩИКА (на 1 экскаватор)","Заполняется поставщиком. Итоговые строки переносятся на лист «Данные по годам».",last="N")
-wt.column_dimensions["A"].width=2; wt.column_dimensions["B"].width=42; wt.column_dimensions["C"].width=12; wt.column_dimensions["D"].width=9
-for p in range(1,H+1): wt.column_dimensions[PCOLS[p]].width=10
-wt.freeze_panes="E10"
-wt.merge_cells("B4:N4")
-ti=wt["B4"]; ti.value=("Инструкция для поставщика: заполните ЖЁЛТЫЕ ячейки по каждому году эксплуатации (1–10). "
- "КТГ и ИТОГО ТОиР рассчитываются автоматически (зелёные строки). Все затраты — в выбранной валюте (ячейка D8), "
- "цены — с учётом планируемой инфляции. Расход ДТ — фактический по двигателю, а не паспортный.")
-ti.font=Font(size=9,italic=True,color=ACC); ti.alignment=L; ti.fill=Fa
-
-def trow(r,label,unit,inputrow=True,fmt=M,formula=None,green=False,cur=False,single=False):
-    b=wt[f"B{r}"]; b.value=label; b.border=BD; b.alignment=L; b.font=(FRz if green else FN)
-    wt[f"C{r}"]=unit; wt[f"C{r}"].font=FU; wt[f"C{r}"].border=BD; wt[f"C{r}"].alignment=C
-    if cur:
-        cu=wt[f"D{r}"]; cu.value="USD"; cu.fill=Fi; cu.border=BD; cu.alignment=C; cu.font=FB
-    if single:
-        c=wt[f"E{r}"]; c.fill=(Fr if green else Fi); c.border=BD; c.alignment=L; c.font=FN
-        if formula: c.value=formula
-        return
-    for p in range(1,H+1):
-        col=PCOLS[p]; c=wt[f"{col}{r}"]; c.border=BD; c.alignment=C; c.number_format=fmt; c.font=(FRz if green else FN)
-        if formula: c.value="="+formula(col); c.fill=Fr
-        elif inputrow: c.fill=Fi
-
-# идентификация
-section(wt,6,"ИДЕНТИФИКАЦИЯ","B","N")
-wt["B7"]="Наименование / модель"; wt["B7"].border=BD; wt["B7"].font=FN; wt.merge_cells("E7:N7"); wt["E7"].fill=Fi; wt["E7"].border=BD
-wt["B8"]="Поставщик"; wt["B8"].border=BD; wt["B8"].font=FN; wt.merge_cells("E8:H8"); wt["E8"].fill=Fi; wt["E8"].border=BD
-wt["I8"]="Валюта затрат:"; wt["I8"].font=FU; wt["I8"].alignment=Rr; wt["D8"]="USD"; wt["D8"].fill=Fi; wt["D8"].border=BD; wt["D8"].alignment=C; wt["D8"].font=FB
-wt["B9"]="Двигатель (марка)"; wt["B9"].border=BD; wt["B9"].font=FN; wt.merge_cells("E9:N9"); wt["E9"].fill=Fi; wt["E9"].border=BD
-dvt=DataValidation(type="list",formula1='"CNY,USD,EUR,RUB"'); wt.add_data_validation(dvt); dvt.add("D8")
-# шапка годов
-wt["B10"]="Показатель"; wt["C10"]="Ед.";
-for cc in ("B","C"):
-    wt[f"{cc}10"].font=FHd; wt[f"{cc}10"].fill=Fh; wt[f"{cc}10"].border=BD; wt[f"{cc}10"].alignment=C
-for p in range(1,H+1):
-    c=wt[f"{PCOLS[p]}10"]; c.value=f"год {p}"; c.font=FHd; c.fill=Fh; c.border=BD; c.alignment=C
-# тех.характеристики (единичные — в столбце E)
-section(wt,11,"ТЕХНИЧЕСКИЕ ХАРАКТЕРИСТИКИ","B","N")
-trow(12,"Геометрический объём ковша","м³",single=True,fmt=M1)
-trow(13,"Объём ковша с шапкой","м³",single=True,fmt=M1)
-trow(14,"Время цикла экскавации","сек",single=True,fmt=M1)
-trow(15,"Мощность двигателя","кВт",single=True,fmt=M)
-# готовность
-section(wt,16,"ГОТОВНОСТЬ (простои и КТГ по годам)","B","N")
-trow(17,"Простои на ТО","ч/год",fmt=M)
-trow(18,"Простои в ремонтах","ч/год",fmt=M)
-trow(19,"Ежесменный осмотр","ч/год",fmt=M)
-trow(20,"КТГ (авто) = (8760 − простои)/8760","коэф.",fmt=P1,green=True,
-     formula=lambda col:f"({pc('kfv')}-{col}17-{col}18-{col}19)/{pc('kfv')}")
-# затраты ТОиР
-section(wt,21,"ЗАТРАТЫ НА ТОиР И СЕРВИС (в валюте D8, тыс/год)","B","N")
-trow(22,"ТО (включая смазочные)","тыс/год",fmt=M,cur=True)
-trow(23,"Текущие ремонты","тыс/год",fmt=M)
-trow(24,"Капитальные ремонты (ППР)","тыс/год",fmt=M)
-trow(25,"Сервис — ТО (трудозатраты)","тыс/год",fmt=M)
-trow(26,"Сервис — ремонты (трудозатраты)","тыс/год",fmt=M)
-trow(27,"ИТОГО ТОиР (авто) → «Данные по годам»","тыс/год",fmt=M,green=True,
-     formula=lambda col:f"SUM({col}22:{col}26)")
-# топливо и расходники
-section(wt,28,"ТОПЛИВО И РАСХОДНИКИ (по годам)","B","N")
-trow(29,"Удельный расход ДТ","кг/час",fmt=M1)
-trow(30,"Расходники на ковш","руб/м³",fmt=M2)
-# прочее
-section(wt,31,"ПРОЧЕЕ","B","N")
-wt["B32"]="Срок поставки"; wt["B32"].border=BD; wt["B32"].font=FN; wt["C32"]="дней"; wt["C32"].font=FU; wt["C32"].border=BD; wt["C32"].alignment=C
-wt["E32"].fill=Fi; wt["E32"].border=BD
-wt["B33"]="Референсы (эксплуатация)"; wt["B33"].border=BD; wt["B33"].font=FN; wt.merge_cells("E33:N33"); wt["E33"].fill=Fi; wt["E33"].border=BD
-wt.merge_cells("B35:N35")
-nt=wt["B35"]; nt.value=("Перенос в модель: строку 20 (КТГ) → в «Данные по годам» строку «КТГ»; строку 27 (ИТОГО ТОиР) → "
- "в строку «Затраты на ТОиР» (с той же валютой); строку 29 (ДТ) и строку 30 (расходники) — в соответствующие строки.")
-nt.font=Font(size=9,italic=True,color="808080"); nt.alignment=L
-print("Шаблон поставщика готов")
+print("Данные по годам (сводка) готова")
 
 # ================================================================= #
 # ПРОИЗВОДИТЕЛЬНОСТЬ (показатели 1-го года)
@@ -878,9 +857,10 @@ blocks=[
         "Операционный аннуитет — приведённые эксплуатационные затраты после налога. Общий = инвестиционный + "
         "операционный. Удельный аннуитет (руб/м³) = общий аннуитет / средний годовой объём; руб/т = руб/м³ / плотность.",65),
  (12,"h","5. ПОРЯДОК РАБОТЫ"),
- (13,"t","«Параметры» → «Ввод данных» (цена, ковш, ДТ, персонал) → «Данные по годам» (КТГ и ТОиР по годам — копируются "
-        "из файла поставщика «Данные_Экскаватор», строки 7 и 13) → авторасчёт «Производительность», «Денежный поток», "
-        "«Расчёт аннуитета» → результаты на «Дашборд» и «Сравнение», анализ на «Чувствительность».",50),
+ (13,"t","«Параметры» → «Ввод данных» (цена, ковш, персонал) → листы «Поставщик 1…6» (по каждой машине: простои, "
+        "статьи ТОиР, ДТ, расходники по годам; КТГ и ИТОГО ТОиР считаются автоматически) → сводка «Данные по годам» "
+        "тянет их сама → авторасчёт «Производительность», «Денежный поток», «Расчёт аннуитета» → «Дашборд», "
+        "«Сравнение», «Чувствительность». Правки вносятся только в листы «Поставщик N».",55),
  (14,"h","6. ДОПУЩЕНИЯ"),
  (15,"t","• Машины сравниваются в одном классе и одной задаче; разница в производительности учтена через руб/м³.",None),
  (16,"t","• Капремонты можно учитывать усреднённо (в ТОиР) или разнести по графику (раздел G ввода).",None),
@@ -900,7 +880,7 @@ wme.cell(row=lg+2,column=2).fill=Fr; wme.cell(row=lg+2,column=2).border=BD
 wme.cell(row=lg+2,column=3,value="зелёные ячейки — итоговые показатели / лучший вариант").font=FN
 
 # порядок листов и сохранение
-order=[S_MET,S_DASH,S_PAR,S_IN,S_PYR,S_TPL,S_PROD,S_CF,S_ANN,S_CMP,S_SENS,S_REF]
+order=[S_MET,S_DASH,S_PAR,S_IN]+TPL_NAMES+[S_PYR,S_PROD,S_CF,S_ANN,S_CMP,S_SENS,S_REF]
 wb._sheets.sort(key=lambda s:order.index(s.title))
 wb.active=1     # Дашборд
 wb.calculation.fullCalcOnLoad=True
