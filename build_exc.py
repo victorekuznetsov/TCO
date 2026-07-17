@@ -327,9 +327,12 @@ for i in range(NEXC):
     rem_cap=[round(TOIR_Y[i][p]-_base,3) for p in range(H)]
     yline(32,"Простои в ремонтах","ч/год",M,values=rem_dt,inp=True)
     yline(33,"Текущие ремонты","тыс/год",M,values=[0]*H,inp=True)
-    yline(34,"Капитальные ремонты (ППР) — из списка","тыс/год",M,green=True,
-          formula=lambda col:f"SUM({col}{REM0}:{col}{REMPLUG})")
-    yline(35,"Сервис ремонтов (трудозатраты)","тыс/год",M,values=[0]*H,inp=True)
+    # капремонты (запчасти) = итог списка минус трудозатраты (карвинг сервиса из общей суммы)
+    yline(34,"Капитальные ремонты (запчасти) — авто","тыс/год",M,green=True,
+          formula=lambda col:f"SUM({col}{REM0}:{col}{REMPLUG})-{col}35")
+    # сервис ремонтов (трудозатраты) — авто: нормо-часы узлов, ремонтируемых в году, × ставка
+    yline(35,"Сервис ремонтов (трудозатраты, авто)","тыс/год",M,green=True,
+          formula=lambda col:f"SUMPRODUCT($C${REM0}:$C${REMPLUG},({col}{REM0}:{col}{REMPLUG}>0)*1)*$E$29/1000")
 
     # ---- ПОЛНЫЙ КАТАЛОГ ЗАПЧАСТЕЙ ТО ----
     section(ws,36,"КАТАЛОГ ЗАПЧАСТЕЙ ТО (заполняет подрядчик)","B","N")
@@ -357,16 +360,18 @@ for i in range(NEXC):
         ws.cell(row=r,column=3,value=nh); ws.cell(row=r,column=3).fill=Fi; ws.cell(row=r,column=3).border=BD; ws.cell(row=r,column=3).alignment=C; ws.cell(row=r,column=3).number_format=M
         for p in range(1,H+1):
             c=ws.cell(row=r,column=4+p); c.fill=Fi; c.border=BD; c.alignment=C; c.number_format=M
-    # строка-плуг (укрупнённый капремонт по годам — пример)
+    # строка-плуг (укрупнённый капремонт по годам — пример), с нормо-часами для трудозатрат
     ws.cell(row=REMPLUG,column=2,value="Прочие/укрупнённо (капремонт)").font=FN; ws.cell(row=REMPLUG,column=2).border=BD; ws.cell(row=REMPLUG,column=2).alignment=L
+    pnh=ws.cell(row=REMPLUG,column=3,value=250); pnh.fill=Fi; pnh.border=BD; pnh.alignment=C; pnh.number_format=M  # нормо-час укрупнённого капремонта
     for p in range(1,H+1):
         c=ws.cell(row=REMPLUG,column=4+p,value=rem_cap[p-1]); c.fill=Fi; c.border=BD; c.alignment=C; c.number_format=M
 
     tpl[i]={"sheet":TPL_NAMES[i],"ktg":11,"itogo":16,"fuel":17,"cons":18,"cur":"$D$5"}
     ws.merge_cells(f"B{NOTEROW}:N{NOTEROW}")
-    nt=ws[f"B{NOTEROW}"]; nt.value=("Заполняйте: каталог запчастей ТО (цена, кол-во, № ТО) и список узлов/капремонтов (стоимость по годам). "
-     "КТГ, затраты ТО и капремонты пересчитаются снизу вверх; сводка «Данные по годам» и весь расчёт обновятся автоматически. "
-     "Строка «Корректировка» и «Прочие/укрупнённо» — балансирующие, замените детализацией.")
+    nt=ws[f"B{NOTEROW}"]; nt.value=("Заполняйте: каталог запчастей ТО (цена, кол-во, № ТО) и список узлов/капремонтов "
+     "(нормо-час + стоимость по годам). Трудозатраты (сервис) считаются автоматически: нормо-часы ремонтируемых в году "
+     "узлов × ставку (стр. «Ставка сервиса»); сервис ТО = ч·часы ТО × ставку. КТГ, затраты ТО и капремонты — снизу вверх; "
+     "сводка «Данные по годам» и весь расчёт обновятся сами. Строки «Корректировка» и «Прочие/укрупнённо» — балансирующие.")
     nt.font=Font(size=9,italic=True,color="808080"); nt.alignment=L
 print("Листы-шаблоны с полными списками ТО/Ремонтов:",NEXC)
 
