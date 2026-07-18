@@ -1120,4 +1120,10 @@ wb.active=1     # Дашборд
 wb.calculation.fullCalcOnLoad=True
 OUT="Модель_TCO_экскаваторов_аннуитет.xlsx"
 wb.save(OUT)
-print("СОХРАНЕНО:",OUT)
+# встроить кэшированные значения формул (чтобы просмотрщики без пересчёта показывали числа)
+try:
+    from inject_cache import inject
+    inject(OUT, OUT)
+    print("СОХРАНЕНО (с кэшем формул):",OUT)
+except Exception as e:
+    print("СОХРАНЕНО (без кэша, ошибка инжектора):",OUT,"|",e)
