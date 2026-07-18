@@ -289,7 +289,9 @@ for i in range(NEXC):
     section(ws,7,"СВОДКА ПО ГОДАМ (зелёное — авто из моделей ниже; тянется в расчёт)","B","N")
     yline(8,"Простои на ТО","ч/год",M,green=True,formula=lambda col:"$G$27")
     yline(9,"Простои в ремонтах","ч/год",M,green=True,formula=lambda col:f"{col}32")
-    yline(10,"Ежесменный осмотр","ч/год",M,values=[0]*H,inp=True)
+    # ежесменное обслуживание: 20 мин/смену × 2 смены (12-час. смена) = (доступное время/смену)×20/60
+    yline(10,"Ежесменное ТО (20 мин/смену)","ч/год",M,green=True,
+          formula=lambda col:f"({pc('kfv')}-{col}8-{col}9)/{pc('shift')}*20/60")
     yline(11,"КТГ (авто) = (8760 − простои)/8760","коэф.",P1,green=True,
           formula=lambda col:f"({pc('kfv')}-{col}8-{col}9-{col}10)/{pc('kfv')}")
     yline(12,"ТО (запчасти + смазочные)","тыс/год",M,green=True,formula=lambda col:"$E$28")
@@ -323,7 +325,9 @@ for i in range(NEXC):
 
     # ---- МОДЕЛЬ РЕМОНТОВ ----
     section(ws,31,"РАСЧЁТ РЕМОНТОВ (график по годам)","B","N")
-    rem_dt=[round(max(0,KFV_LIT*(1-KTG_Y[i][p])-_to_dt),2) for p in range(H)]
+    # простои ремонта калибруются так, чтобы КТГ (с учётом ежесменного ТО) совпал с целевым
+    _kshift=20/(60*12); _Ares=KFV_LIT-_to_dt
+    rem_dt=[round(max(0,(KFV_LIT*(1-KTG_Y[i][p])-_to_dt-_Ares*_kshift)/(1-_kshift)),2) for p in range(H)]
     rem_cap=[round(TOIR_Y[i][p]-_base,3) for p in range(H)]
     yline(32,"Простои в ремонтах","ч/год",M,values=rem_dt,inp=True)
     yline(33,"Текущие ремонты","тыс/год",M,values=[0]*H,inp=True)
