@@ -29,7 +29,9 @@ S_PYR="Данные по годам"; S_TPL="Шаблон поставщика"
 S_PROD="Производительность"; S_CF="Денежный поток"; S_ANN="Расчёт аннуитета"
 S_CMP="Сравнение"; S_ANL="Аналитика"; S_SENS="Чувствительность"; S_REF="Справочник"
 
-EXC=["D","E","F","G","H","I"]; NEXC=6
+EXC=["D","E","F","G","H","I","J"]; NEXC=7
+LC=EXC[-1]                              # последняя колонка машины (J для 7)
+LCN=3+NEXC                             # номер последней колонки машины (10)
 H=10                                   # горизонт, лет (периоды 0..10)
 PCOLS=[get_column_letter(4+p) for p in range(H+1)]   # D..N (период 0..10)
 
@@ -142,15 +144,15 @@ for i,cc in enumerate(EXC):
 wi[f"K{HR}"]="Пояснение"; wi[f"K{HR}"].font=FHd; wi[f"K{HR}"].fill=Fh; wi[f"K{HR}"].border=BD; wi[f"K{HR}"].alignment=C
 
 names=["Komatsu PC2000-8\nMining Solutions","Komatsu PC2000-11R\nИСТК","Zoomlion ZE2000G\nОрикс",
-       "Sany SY2000\nАСТ","Shantui SE2000LCW","TZCO TZ2000\nДзикай"]
-supplier=["Mining Solutions","ИСТК","Орикс","АСТ","Строймпорттехника","Дзикай"]
-engines=["Komatsu SAA12V140E","Komatsu SAA12V140E-7","Cummins QST30","Cummins QSK38","Weichai 12M33","Weichai 12M33"]
-price_val=[3800,3401.64,20129,19621.62,16742.05,15400]
-price_cur=["USD","USD","CNY","CNY","CNY","CNY"]
-install=[0,0,0,0,0,0]; resid=[0.0]*6
-bucket=[10,10,10,10,9.6,12]; cycle=[37.3]*6; downtime=[266.1]*6
-fuel_kgh=[88.46,85.81,90.23,92.04,102,120]
-bucket_m3=[0.87]*6; personnel=[10015]*6
+       "Sany SY2000\nАСТ","Shantui SE2000LCW","TZCO TZ2000\nДзикай","XCMG ESTAR ESE2000\n(поставщик не указан)"]
+supplier=["Mining Solutions","ИСТК","Орикс","АСТ","Строймпорттехника","Дзикай","—"]
+engines=["Komatsu SAA12V140E","Komatsu SAA12V140E-7","Cummins QST30","Cummins QSK38","Weichai 12M33","Weichai 12M33","1102 л.с."]
+price_val=[3800,3401.64,20129,19621.62,16742.05,15400,18000]
+price_cur=["USD","USD","CNY","CNY","CNY","CNY","CNY"]
+install=[0]*NEXC; resid=[0.0]*NEXC
+bucket=[10,10,10,10,9.6,12,12]; cycle=[37.3,37.3,37.3,37.3,37.3,37.3,26]; downtime=[266.1]*NEXC
+fuel_kgh=[88.46,85.81,90.23,92.04,102,120,105]
+bucket_m3=[0.87]*NEXC; personnel=[10015]*NEXC
 
 LAY=[
  ("SEC","A. ИДЕНТИФИКАЦИЯ"),
@@ -188,7 +190,7 @@ for it in LAY:
     wi[f"K{r}"]=comment; wi[f"K{r}"].font=FU; wi[f"K{r}"].border=BD; wi[f"K{r}"].alignment=L
     r+=1
 dv=DataValidation(type="list",formula1='"CNY,USD,EUR,RUB"',allow_blank=False); wi.add_data_validation(dv)
-dv.add(f"D{irow['price_cur']}:I{irow['price_cur']}")
+dv.add(f"D{irow['price_cur']}:{LC}{irow['price_cur']}")
 def inp(key,col): return f"'{S_IN}'!{col}{irow[key]}"
 print("Ввод:",len(irow))
 
@@ -202,15 +204,17 @@ KTG_Y={
  2:[0.854652,0.728327,0.755123,0.694534,0.693404,0.742737,0.717152,0.773228,0.66797,0.757295],
  3:[0.854652,0.728327,0.755123,0.694534,0.693404,0.742737,0.717152,0.773228,0.66797,0.757295],
  4:[0.854652,0.728327,0.755123,0.694534,0.693404,0.742737,0.717152,0.773228,0.66797,0.757295],
- 5:[0.854652,0.728327,0.755123,0.694534,0.693404,0.742737,0.717152,0.773228,0.66797,0.757295]}
+ 5:[0.854652,0.728327,0.755123,0.694534,0.693404,0.742737,0.717152,0.773228,0.66797,0.757295],
+ 6:[0.914954,0.910404,0.823614,0.909572,0.904411,0.807411,0.893312,0.814125,0.830273,0.810074]}  # XCMG (файл поставщика)
 TOIR_Y={  # тыс. валюты / год; включает ТО, текущие и капитальные ремонты, сервис
  0:[100.666,141.1002,633.3182,1430.6176,211.666,673.7523,141.1002,1390.1835,784.7523,100.666],
  1:[100.666,141.1002,633.3182,1430.6176,211.666,673.7523,141.1002,1390.1835,784.7523,100.666],
  2:[160.7578,178.0231,1021.9348,178.0231,291.7228,1039.2001,160.7578,178.0231,1021.9348,308.9881],
  3:[337.7887,530.6868,1544.312,531.869,658.6154,1741.348,442.6356,786.9538,1587.0,467.2187],
  4:[160.7578,178.0231,1021.9348,178.0231,291.7228,1039.2001,160.7578,178.0231,1021.9348,308.9881],
- 5:[170.997,177.397,170.997,177.397,310.197,177.397,2540.277,177.397,170.997,2718.997]}
-TOIR_CUR=["USD","USD","USD","USD","USD","USD"]
+ 5:[170.997,177.397,170.997,177.397,310.197,177.397,2540.277,177.397,170.997,2718.997],
+ 6:[267.536,657.255,1563.084,660.921,244.122,1994.217,253.122,1190.943,1310.748,320.622]}
+TOIR_CUR=["USD","USD","USD","USD","USD","USD","USD"]
 FUEL_Y={i:[fuel_kgh[i]]*H for i in range(NEXC)}
 CONS_Y={i:[bucket_m3[i]]*H for i in range(NEXC)}
 KFV_LIT=8760
@@ -253,6 +257,12 @@ CATALOGS=[
  [["ДВС",1540.57,18000,24],["Муфта РПН",54.79,18000,24],["Подушки опоры ДВС",5.41,18000,24],["Цилиндр стрелы 2 шт",114.77,12000,24],["Цилиндр ковша",21.05,12000,24],["Цилиндр рукояти",21.29,12000,24],["Центральный коллектор",4.89,12000,24],["Гидрораспределитель осн.",2035.4,24000,24],["РВД раб. оборудования",97.1,12000,24],["Радиатор гидравлический",835.4,18000,24],["Радиатор ДВС",523.89,18000,24],["Гидромотор хода 2 шт",362.8,18000,24],["Направляющее колесо 2 шт",157.49,18000,24],["Гидроцилиндр натяжителей",268.3,18000,24],["Звёздочка",83.64,18000,24],["Гусеница",1507.98,18000,24],["Каток опорный",1921.4,18000,24],["Каток поддерживающий",83.86,18000,24],["Джойстики управления 2 шт",22.32,12000,24],["Гидронасосы основные",187.04,12000,24],["Гидронасос вентилятора",38.11,12000,24],["Редуктор поворота 2 шт",500.23,30000,24],["Редуктор хода 2 шт",1391.86,30000,24],["Редуктор гидронасосов",446.02,30000,24],["Гидромотор поворота 2 шт",362.8,12000,24],["Гидромоторы крыльчатки",94.34,12000,24],["Крыльчатка",85.74,12000,24],["Гидроаккумулятор",8.07,18000,24],["Пальцы и втулки раб.об.",43.48,6000,24],["Пальцы и втулки раб.об. 2",90.69,18000,24],["Электропроводка MCV",3.76,18000,24]],
  # 5: TZCO
  [["Расходники",1.0,4000,24],["Расходники 2",0.5,6000,24],["Ходовой двигатель",150.0,70000,24],["Редуктор хода",460.0,70000,24],["Тормоз хода",30.0,35000,24],["Гусеничная лента",500.0,49000,24],["Натяжное колесо",80.0,49000,24],["Двигатель",150.0,70000,24],["Передача",30.0,35000,24],["Тормоз",500.0,49000,24]],
+ # 6: XCMG ESTAR ESE2000 (сгруппировано по узлам из листа «Ремонты» файла поставщика; воспроизводит ИТОГО ТОиР файла)
+ [["Гидроцилиндры (ремкомплекты)",21.06,7000,24],["Ковш (коронки, адаптеры, защиты)",119.07,7000,24],
+  ["Рабочее оборудование (пальцы/втулки)",12.0,14000,24],["Ходовая часть",405.99,14000,24],
+  ["Гидросистема (капремонт)",834.88,21000,24],["Капремонт ДВС",246.94,21000,24],
+  ["Рабочее оборудование (капремонт)",92.68,21000,24],["Централизованная смазка",98.23,21000,24],
+  ["Датчики электрика",1.87,21000,24],["Электронный блок",2.99,28000,24]],
 ]
 CAT0=39; CATN=CAT0+len(TO_PARTS)-1; CORR=CATN+1                        # каталог ТО (общий)
 tpl={}
@@ -347,8 +357,8 @@ for i in range(NEXC):
     yline(34,"Капитальные ремонты ППР (из списка)","тыс/год",M,green=True,
           formula=lambda col:f"SUM({col}{CAP0}:{col}{CAPN})*$E$36")
     yline(35,"Сервис ремонтов (трудозатраты, авто)","тыс/год",M,green=True,
-          formula=lambda col:(f"(SUMPRODUCT($P${CUR0}:$P${CURN},({col}{CUR0}:{col}{CURN}>0)*1)"
-                              f"+SUMPRODUCT($P${CAP0}:$P${CAPN},({col}{CAP0}:{col}{CAPN}>0)*1))*$E$29/1000"))
+          formula=lambda col:(f"(IFERROR(SUMPRODUCT($P${CUR0}:$P${CURN},({col}{CUR0}:{col}{CURN}>0)*1),0)"
+                              f"+IFERROR(SUMPRODUCT($P${CAP0}:$P${CAPN},({col}{CAP0}:{col}{CAPN}>0)*1),0))*$E$29/1000"))
     sline(36,"Коэффициент поглощения (0–1; 1=как у поставщика)","коэф.",M2,value=1.0)
 
     # ---- КАТАЛОГ ЗАПЧАСТЕЙ ТО ----
@@ -444,12 +454,13 @@ def toir_rate(i):
 print("Данные по годам (сводка) готова")
 
 # ================================================================= #
-# ПРОИЗВОДИТЕЛЬНОСТЬ (показатели 1-го года)
+# ПРОИЗВОДИТЕЛЬНОСТЬ (геометрия — константа; полная погодовая таблица ниже)
 # ================================================================= #
 wpr=wb.create_sheet(S_PROD); wpr.sheet_view.showGridLines=False
-title(wpr,"РАСЧЁТ ПРОИЗВОДИТЕЛЬНОСТИ (1-й год)","Часовая и годовая производительность. По годам — на листе «Денежный поток».")
+title(wpr,"РАСЧЁТ ПРОИЗВОДИТЕЛЬНОСТИ","Часовая производительность (геометрия ковша/цикла — неизменна по годам) и полная погодовая таблица по каждой машине (КТГ по годам из «Данные по годам»).",last="N")
 wpr.column_dimensions["A"].width=2; wpr.column_dimensions["B"].width=42; wpr.column_dimensions["C"].width=12
 for cc in EXC: wpr.column_dimensions[cc].width=15
+for cc in ("K","L","M","N"): wpr.column_dimensions[cc].width=10
 PHR=4
 wpr[f"B{PHR}"]="Показатель"; wpr[f"B{PHR}"].font=FHd; wpr[f"B{PHR}"].fill=Fh; wpr[f"B{PHR}"].border=BD; wpr[f"B{PHR}"].alignment=C
 wpr[f"C{PHR}"]="Ед."; wpr[f"C{PHR}"].font=FHd; wpr[f"C{PHR}"].fill=Fh; wpr[f"C{PHR}"].border=BD; wpr[f"C{PHR}"].alignment=C
@@ -481,7 +492,38 @@ padd2("eff","Эффективное время (1-й год)","час/год",la
 padd2("kio","КИО (1-й год)","коэф.",lambda c:f"{pref('eff',c)}/{pc('kfv')}",P1)
 padd2("am3","Производительность (1-й год)","тыс.м³",lambda c:f"{pref('m3h',c)}*{pref('eff',c)}/1000",M,res=True)
 def prodref(key,col): return f"'{S_PROD}'!{col}{prd[key]}"
-print("Производительность:",len(prd))
+
+# ---- ПОГОДОВАЯ ПРОИЗВОДИТЕЛЬНОСТЬ (все 10 лет, по каждой машине) ----
+pr+=1
+section(wpr,pr,"ПОГОДОВАЯ ПРОИЗВОДИТЕЛЬНОСТЬ (КТГ по годам из «Данные по годам»; часовая производительность — из геометрии выше)","B","N"); pr+=1
+wpr[f"B{pr}"]="Показатель"; wpr[f"B{pr}"].font=FHd; wpr[f"B{pr}"].fill=Fh; wpr[f"B{pr}"].border=BD; wpr[f"B{pr}"].alignment=C
+wpr[f"C{pr}"]="Ед."; wpr[f"C{pr}"].font=FHd; wpr[f"C{pr}"].fill=Fh; wpr[f"C{pr}"].border=BD; wpr[f"C{pr}"].alignment=C
+for p in range(1,H+1):
+    c=wpr[f"{PCOLS[p]}{pr}"]; c.value=f"год {p}"; c.font=FHd; c.fill=Fh; c.border=BD; c.alignment=C
+pr+=1
+def pyline(row,label,unit,fmt,formula_fn):
+    b=wpr[f"B{row}"]; b.value=label; b.border=BD; b.alignment=L; b.font=FRz
+    wpr[f"C{row}"]=unit; wpr[f"C{row}"].font=FU; wpr[f"C{row}"].border=BD; wpr[f"C{row}"].alignment=C
+    for p in range(1,H+1):
+        col=PCOLS[p]; c=wpr[f"{col}{row}"]; c.value="="+formula_fn(col,p); c.number_format=fmt
+        c.border=BD; c.alignment=C; c.font=FRz; c.fill=Fr
+    return row+1
+prdy={}
+for i in range(NEXC):
+    ec=EXC[i]
+    wpr.merge_cells(f"B{pr}:N{pr}")
+    hc=wpr[f"B{pr}"]; hc.value=f"=\"Вариант {i+1}:  \"&'{S_IN}'!{ec}{irow['name']}"; hc.font=FSec; hc.alignment=L
+    for col in range(2,15): wpr.cell(row=pr,column=col).fill=Fm
+    pr+=1
+    r_ktg=pr; pr=pyline(pr,"КТГ (по годам)","коэф.",P1,lambda col,p:pyr('ktg',i,p))
+    r_tech=pr; pr=pyline(pr,"Время техготовности","час/год",M,lambda col,p,r=r_ktg:f"{pc('kfv')}*{col}{r}")
+    r_eff=pr; pr=pyline(pr,"Эффективное время","час/год",M,lambda col,p,r=r_tech:f"{col}{r}*(1-{inp('downtime',ec)}/(60*{pc('shift')}))")
+    r_kio=pr; pr=pyline(pr,"КИО","коэф.",P1,lambda col,p,r=r_eff:f"{col}{r}/{pc('kfv')}")
+    r_vol=pr; pr=pyline(pr,"Производительность","тыс.м³",M,lambda col,p,r=r_eff:f"{prodref('m3h',ec)}*{col}{r}/1000")
+    prdy[i]={"ktg":r_ktg,"tech":r_tech,"eff":r_eff,"kio":r_kio,"vol":r_vol}
+    pr+=1
+def prodyref(key,i,p): return f"'{S_PROD}'!{PCOLS[p]}{prdy[i][key]}"
+print("Производительность:",len(prd),"+ погодовая таблица,",NEXC,"машин")
 
 # ================================================================= #
 # ДЕНЕЖНЫЙ ПОТОК (погодовой движок, 6 блоков)
@@ -693,7 +735,7 @@ for label,key,reff,fmt,unit in metrics:
         if key=="u_tot": c.fill=Fr
     m+=1
 section(wm,m,"РАНЖИРОВАНИЕ (критерий: минимум аннуитета руб/м³)","B","I"); m+=1
-tot_rng=f"D{mrow['u_tot']}:I{mrow['u_tot']}"
+tot_rng=f"D{mrow['u_tot']}:{LC}{mrow['u_tot']}"
 wm[f"B{m}"]="Место в рейтинге"; wm[f"B{m}"].font=FB; wm[f"B{m}"].border=BD
 for cc in EXC:
     c=wm[f"{cc}{m}"]; c.value=f"=RANK({cc}{mrow['u_tot']},{tot_rng},1)"; c.font=FB; c.border=BD; c.alignment=C
@@ -702,9 +744,9 @@ wm[f"B{m}"]="Отклонение от лучшего"; wm[f"B{m}"].font=FN; wm[
 for cc in EXC:
     c=wm[f"{cc}{m}"]; c.value=f"={cc}{mrow['u_tot']}/MIN({tot_rng})-1"; c.number_format=P1; c.border=BD; c.alignment=C; c.font=FN
 m+=2
-names_rng=f"D{MHR}:I{MHR}"
+names_rng=f"D{MHR}:{LC}{MHR}"
 wm[f"B{m}"]="РЕКОМЕНДУЕМЫЙ ВАРИАНТ:"; wm[f"B{m}"].font=Font(bold=True,size=12,color=DARK)
-wm.merge_cells(f"C{m}:I{m}")
+wm.merge_cells(f"C{m}:{LC}{m}")
 rec=wm[f"C{m}"]; rec.value=f'=INDEX({names_rng},MATCH(MIN({tot_rng}),{tot_rng},0))&"  ("&TEXT(MIN({tot_rng}),"0.00")&" руб/м³)"'
 rec.font=Font(bold=True,size=12,color="006100"); rec.alignment=C
 for col in ["C","D","E","F","G","H","I"]: wm[f"{col}{m}"].fill=Fb; wm[f"{col}{m}"].border=BD
@@ -724,21 +766,21 @@ for label,key in struct:
         c=wm[f"{cc}{m}"]; c.value="="+annref(key,cc); c.number_format=M2; c.border=BD; c.alignment=Rr; c.font=FN
     m+=1
 sbot=m-1
-catref=Reference(wm,min_col=4,min_row=stop-1,max_col=9,max_row=stop-1)
+catref=Reference(wm,min_col=4,min_row=stop-1,max_col=LCN,max_row=stop-1)
 chart1=BarChart(); chart1.type="col"; chart1.grouping="stacked"; chart1.overlap=100
 chart1.title="Структура аннуитета, руб/м³"; chart1.height=9; chart1.width=20; chart1.y_axis.title="руб/м³"
 for k in range(len(struct)):
-    ri=stop+k; vals=Reference(wm,min_col=4,min_row=ri,max_col=9,max_row=ri)
+    ri=stop+k; vals=Reference(wm,min_col=4,min_row=ri,max_col=LCN,max_row=ri)
     ser=Series(vals,title_from_data=False); ser.tx=SeriesLabel(strRef=StrRef(f"'{S_CMP}'!$B${ri}")); chart1.series.append(ser)
 chart1.set_categories(catref); wm.add_chart(chart1,"K4")
 chart2=BarChart(); chart2.type="col"; chart2.title="Общий аннуитет, руб/м³"; chart2.height=8; chart2.width=11; chart2.y_axis.title="руб/м³"
-d2=Reference(wm,min_col=4,min_row=mrow['u_tot'],max_col=9,max_row=mrow['u_tot'])
-c2=Reference(wm,min_col=4,min_row=MHR,max_col=9,max_row=MHR)
+d2=Reference(wm,min_col=4,min_row=mrow['u_tot'],max_col=LCN,max_row=mrow['u_tot'])
+c2=Reference(wm,min_col=4,min_row=MHR,max_col=LCN,max_row=MHR)
 chart2.add_data(d2,from_rows=True); chart2.set_categories(c2); chart2.legend=None
 chart2.dataLabels=DataLabelList(); chart2.dataLabels.showVal=True; chart2.dataLabels.numFmt="0.0"
 wm.add_chart(chart2,"K23")
 chart3=BarChart(); chart3.type="col"; chart3.title="Стоимость экскаватора, тыс.руб"; chart3.height=8; chart3.width=11
-d3=Reference(wm,min_col=4,min_row=mrow['price_rub'],max_col=9,max_row=mrow['price_rub'])
+d3=Reference(wm,min_col=4,min_row=mrow['price_rub'],max_col=LCN,max_row=mrow['price_rub'])
 chart3.add_data(d3,from_rows=True); chart3.set_categories(c2); chart3.legend=None
 wm.add_chart(chart3,"T23")
 print("Сравнение:",len(mrow))
@@ -752,9 +794,9 @@ for col,w in (("A",2),("B",22),("C",22),("D",22),("E",22),("F",6),("G",13),("H",
     wd.column_dimensions[col].width=w
 # KPI-плитки
 utot="'{s}'!{r}".format(s=S_ANN,r="") # not used
-UT=f"'{S_ANN}'!D{ar['u_tot']}:I{ar['u_tot']}"
-NM=f"'{S_ANN}'!D{ar['n_tot']}:I{ar['n_tot']}"
-NR=f"'{S_IN}'!D{irow['name']}:I{irow['name']}"
+UT=f"'{S_ANN}'!D{ar['u_tot']}:{LC}{ar['u_tot']}"
+NM=f"'{S_ANN}'!D{ar['n_tot']}:{LC}{ar['n_tot']}"
+NR=f"'{S_IN}'!D{irow['name']}:{LC}{irow['name']}"
 def tile(anchor_col,row,caption,value_formula,fmt):
     c0=anchor_col
     # заголовок
@@ -778,7 +820,7 @@ wd[f"B{tr}"]="Место"; wd[f"C{tr}"]="Экскаватор"; wd[f"G{tr}"]="А
 for cc,txt in (("B","Место"),("C","Экскаватор"),("G","Аннуитет, руб/м³"),("I","руб/т")):
     wd[f"{cc}{tr}"].font=FHd; wd[f"{cc}{tr}"].fill=Fh; wd[f"{cc}{tr}"].border=BD; wd[f"{cc}{tr}"].alignment=C
 wd.merge_cells(f"C{tr}:F{tr}"); wd.merge_cells(f"G{tr}:H{tr}")
-TT=f"'{S_ANN}'!$D${ar['t_tot']}:$I${ar['t_tot']}"
+TT=f"'{S_ANN}'!$D${ar['t_tot']}:${LC}${ar['t_tot']}"
 for k in range(NEXC):
     rr=tr+1+k
     wd[f"B{rr}"]=k+1; wd[f"B{rr}"].font=FB; wd[f"B{rr}"].border=BD; wd[f"B{rr}"].alignment=C
@@ -792,8 +834,8 @@ for k in range(NEXC):
     vt=wd[f"I{rr}"]; vt.value=f'=INDEX({TT},MATCH(SMALL({UT},{k+1}),{UT},0))'; vt.number_format=M2; vt.border=BD; vt.alignment=C; vt.font=FN
 # график: общий аннуитет
 gc=BarChart(); gc.type="col"; gc.title="Общий аннуитет, руб/м³"; gc.height=8; gc.width=13; gc.y_axis.title="руб/м³"
-gd=Reference(wm,min_col=4,min_row=mrow['u_tot'],max_col=9,max_row=mrow['u_tot'])
-gcat=Reference(wm,min_col=4,min_row=MHR,max_col=9,max_row=MHR)
+gd=Reference(wm,min_col=4,min_row=mrow['u_tot'],max_col=LCN,max_row=mrow['u_tot'])
+gcat=Reference(wm,min_col=4,min_row=MHR,max_col=LCN,max_row=MHR)
 gc.add_data(gd,from_rows=True); gc.set_categories(gcat); gc.legend=None
 gc.dataLabels=DataLabelList(); gc.dataLabels.showVal=True; gc.dataLabels.numFmt="0.0"
 wd.add_chart(gc,"L4")
@@ -815,13 +857,13 @@ ws=wb.create_sheet(S_SENS); ws.sheet_view.showGridLines=False
 title(ws,"АНАЛИЗ ЧУВСТВИТЕЛЬНОСТИ","Торнадо драйверов, влияние КТГ и ставки дисконтирования на аннуитет.")
 ws.column_dimensions["A"].width=2; ws.column_dimensions["B"].width=34
 for cc in "CDEFGH": ws.column_dimensions[cc].width=15
-ws["B4"]="Анализируемый экскаватор (1–6):"; ws["B4"].font=FB
+ws["B4"]="Анализируемый экскаватор (1–7):"; ws["B4"].font=FB
 sel=ws["C4"]; sel.value=1; sel.fill=Fi; sel.border=BD; sel.alignment=C; sel.font=FB
 SEL="$C$4"
-dv2=DataValidation(type="whole",operator="between",formula1="1",formula2="6"); ws.add_data_validation(dv2); dv2.add(sel)
-ws["D4"]=f"=INDEX('{S_IN}'!D{irow['name']}:I{irow['name']},{SEL})"; ws["D4"].font=Font(bold=True,color=ACC); ws["D4"].alignment=L
+dv2=DataValidation(type="whole",operator="between",formula1="1",formula2=str(NEXC)); ws.add_data_validation(dv2); dv2.add(sel)
+ws["D4"]=f"=INDEX('{S_IN}'!D{irow['name']}:{LC}{irow['name']},{SEL})"; ws["D4"].font=Font(bold=True,color=ACC); ws["D4"].alignment=L
 ws.merge_cells("D4:H4")
-def selann(key): return f"INDEX('{S_ANN}'!D{ar[key]}:I{ar[key]},{SEL})"
+def selann(key): return f"INDEX('{S_ANN}'!D{ar[key]}:{LC}{ar[key]},{SEL})"
 section(ws,6,"БАЗОВЫЕ ВЕЛИЧИНЫ ВЫБРАННОГО ВАРИАНТА","B","H")
 base=[
  ("b_tot","Общий аннуитет","руб/м³",selann("u_tot"),M2),
@@ -830,7 +872,7 @@ base=[
  ("b_maint","— ТОиР + капремонты","руб/м³",selann("u_maint"),M2),
  ("b_pers","— персонал","руб/м³",selann("u_pers"),M2),
  ("b_am3","Средний годовой объём","тыс.м³",selann("avgprod"),M),
- ("b_price","Стоимость (руб)","тыс.руб",f"INDEX('{S_PROD}'!D{prd['price_rub']}:I{prd['price_rub']},{SEL})",M),
+ ("b_price","Стоимость (руб)","тыс.руб",f"INDEX('{S_PROD}'!D{prd['price_rub']}:{LC}{prd['price_rub']},{SEL})",M),
  ("b_fix","Постоянные (инв+ТОиР+перс+щит)","руб/м³",
    f"{selann('u_inv')}+{selann('u_maint')}+{selann('u_pers')}+{selann('u_tax')}",M2),
  ("b_var","Переменные (топливо+ковш)","руб/м³",f"{selann('u_fuel')}+{selann('u_bucket')}",M2),
@@ -902,7 +944,7 @@ for j,rt in enumerate(rates):
     col=get_column_letter(3+j)
     pvaf=f"(1-(1+{col}{ur-1})^-{pc('horizon')})/{col}{ur-1}"
     # инвест. аннуитет(r) = price*(1 - resid*DF10(r))/PVAF(r,N)/avgprod ; resid выбранного варианта
-    resid_sel=f"INDEX('{S_IN}'!D{irow['resid']}:I{irow['resid']},{SEL})"
+    resid_sel=f"INDEX('{S_IN}'!D{irow['resid']}:{LC}{irow['resid']},{SEL})"
     inv_ann=f"{br('b_price')}*(1-{resid_sel}/(1+{col}{ur-1})^{pc('horizon')})/({pvaf})/{br('b_am3')}"
     c=ws.cell(row=ur,column=3+j,value=f"={inv_ann}+{br('b_tot')}-{br('b_inv')}")
     c.number_format=M2; c.border=BD; c.alignment=Rr; c.font=FB
@@ -950,11 +992,11 @@ aline("npv","NPV стоимости владения","тыс.руб",lambda i:A
 aline("s_cap","Доля CAPEX","%",lambda i:f"{A('u_inv',i)}/{A('u_tot',i)}",P1)
 aline("s_fuel","Доля топлива","%",lambda i:f"{A('u_fuel',i)}/{A('u_tot',i)}",P1)
 aline("s_maint","Доля ТОиР","%",lambda i:f"{A('u_maint',i)}/{A('u_tot',i)}",P1)
-m3rng=f"D{an['m3']}:I{an['m3']}"
+m3rng=f"D{an['m3']}:{LC}{an['m3']}"
 aline("rank","Место в рейтинге","",lambda i:f"RANK({acol(i)}{an['m3']},{m3rng},1)",M,res=True)
 
 asec2("РАЗЛОЖЕНИЕ ПРЕВЫШЕНИЯ АННУИТЕТА НАД ЛУЧШИМ (руб/м³)")
-def dvs(key): return lambda i:f"{A(key,i)}-MIN(D{ar[key]}:I{ar[key]})"
+def dvs(key): return lambda i:f"{A(key,i)}-MIN(D{ar[key]}:{LC}{ar[key]})"
 aline("d_inv","Δ инвестиции",  "руб/м³",dvs('u_inv'),M2)
 aline("d_fuel","Δ топливо",    "руб/м³",dvs('u_fuel'),M2)
 aline("d_maint","Δ ТОиР",       "руб/м³",dvs('u_maint'),M2)
@@ -983,12 +1025,12 @@ aline("val_ktg","Эффект +1 п.п. КТГ на аннуитет","руб/м
 
 # вывод (формульный)
 arow+=1
-names_rng=f"D{NHR}:I{NHR}"
+names_rng=f"D{NHR}:{LC}{NHR}"
 wan[f"B{arow}"]="ВЫВОД:"; wan[f"B{arow}"].font=Font(bold=True,size=12,color=DARK)
-wan.merge_cells(f"C{arow}:I{arow}")
+wan.merge_cells(f"C{arow}:{LC}{arow}")
 concl=wan[f"C{arow}"]
 concl.value=(f'="Лучший по удельному TCO: "&INDEX({names_rng},MATCH(MIN({m3rng}),{m3rng},0))'
-             f'&" ("&TEXT(MIN({m3rng}),"0.00")&" руб/м³, "&TEXT(MIN(D{an["t"]}:I{an["t"]}),"0.00")&" руб/т). "'
+             f'&" ("&TEXT(MIN({m3rng}),"0.00")&" руб/м³, "&TEXT(MIN(D{an["t"]}:{LC}{an["t"]}),"0.00")&" руб/т). "'
              f'&"Отрыв от худшего: "&TEXT(MAX({m3rng})-MIN({m3rng}),"0.00")&" руб/м³."')
 concl.font=Font(bold=True,size=11,color="006100"); concl.fill=Fb; concl.alignment=L
 for cc in "CDEFGHI": wan[f"{cc}{arow}"].border=BD
@@ -1006,16 +1048,16 @@ for t in ["Levelized cost — приведённые затраты на еди�
 # 1) scatter: производительность vs аннуитет
 sc=ScatterChart(); sc.title="Аннуитет vs производительность"; sc.height=8; sc.width=12
 sc.x_axis.title="Годовой объём, тыс.м³"; sc.y_axis.title="Аннуитет, руб/м³"; sc.x_axis.delete=False; sc.y_axis.delete=False
-xref=Reference(wan,min_col=4,min_row=an['prod'],max_col=9,max_row=an['prod'])
-yref=Reference(wan,min_col=4,min_row=an['m3'],max_col=9,max_row=an['m3'])
+xref=Reference(wan,min_col=4,min_row=an['prod'],max_col=LCN,max_row=an['prod'])
+yref=Reference(wan,min_col=4,min_row=an['m3'],max_col=LCN,max_row=an['m3'])
 ser=Series(yref,xref,title="варианты"); ser.marker.symbol="circle"; ser.marker.size=8; ser.graphicalProperties.line.noFill=True
 sc.series.append(ser); sc.legend=None
 wan.add_chart(sc,"K4")
 # 2) диапазон риска (опт/база/песс)
 rc=BarChart(); rc.type="col"; rc.title="Диапазон риска аннуитета, руб/м³"; rc.height=8; rc.width=13; rc.y_axis.title="руб/м³"
-cats=Reference(wan,min_col=4,min_row=NHR,max_col=9,max_row=NHR)
+cats=Reference(wan,min_col=4,min_row=NHR,max_col=LCN,max_row=NHR)
 for key,lbl in [("opt","оптимистичный"),("base","базовый"),("pess","пессимистичный")]:
-    ref=Reference(wan,min_col=4,min_row=an[key],max_col=9,max_row=an[key])
+    ref=Reference(wan,min_col=4,min_row=an[key],max_col=LCN,max_row=an[key])
     s=Series(ref,title=lbl); rc.series.append(s)
 rc.set_categories(cats)
 wan.add_chart(rc,"K22")
