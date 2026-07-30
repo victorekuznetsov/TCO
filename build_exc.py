@@ -23,6 +23,22 @@ from openpyxl.chart.label import DataLabelList
 from openpyxl.chart.series import SeriesLabel
 from openpyxl.chart.data_source import StrRef
 from openpyxl.worksheet.datavalidation import DataValidation
+import sys
+
+# ================================================================= #
+# РЕЖИМ СБОРКИ: две версии модели
+#   "supplier" — ИТОГО ТОиР считается снизу вверх из каталогов ТКП поставщиков
+#                (коэф.калибровки = 1). Отражает данные поставщика «как есть».
+#   "official" — ИТОГО ТОиР калибруется под официальный расчёт
+#                (000_БСЛ-2027, версия 30.07.2026): коэффициент приводит аннуитет
+#                каждой машины к значению из присланного файла.
+# Запуск:  python3 build_exc.py supplier   |   python3 build_exc.py official
+# ================================================================= #
+MODE = sys.argv[1] if len(sys.argv) > 1 else "supplier"
+assert MODE in ("supplier", "official"), "MODE должен быть supplier или official"
+# коэффициент калибровки ИТОГО ТОиР под официальный файл (по машинам 0..7)
+# 1 — Komatsu PC2000-8 MS, PC2000-11R ИСТК, Zoomlion, Sany, Shantui, TZCO, XCMG ESTAR, Подрядчик
+OFFICIAL_COEF = [0.510, 1.009, 1.258, 1.956, 0.191, 2.144, 1.0, 1.0]
 
 S_MET="Методика"; S_DASH="Дашборд"; S_PAR="Параметры"; S_IN="Ввод данных"
 S_PYR="Данные по годам"; S_TPL="Шаблон поставщика"
@@ -223,6 +239,8 @@ FUEL_Y={i:[fuel_kgh[i]]*H for i in range(NEXC)}
 CONS_Y={i:[bucket_m3[i]]*H for i in range(NEXC)}
 KFV_LIT=8760
 TPL_NAMES=[f"Поставщик {i+1}" for i in range(NEXC)]
+# коэффициент калибровки ИТОГО ТОиР: 1 для версии поставщика, калибровка для официальной
+TOIR_CAL = ([1.0]*NEXC if MODE=="supplier" else [OFFICIAL_COEF[i] if i<len(OFFICIAL_COEF) else 1.0 for i in range(NEXC)])
 
 # --- 6 листов-шаблонов поставщиков: модели ТО и Ремонтов + полные вводимые списки ---
 # Сводка: КТГ=11, ИТОГО ТОиР=16, ДТ=17, расходники=18, валюта=D5
@@ -371,7 +389,7 @@ for i in range(NEXC):
     yline(19,"Сервис текущих ремонтов (авто)","тыс/год",M,green=True,formula=lambda col:f"{col}16*$E${R_RATE}/1000")
     yline(20,"Сервис капитальных ремонтов (цех, авто)","тыс/год",M,green=True,formula=lambda col:f"{col}17*$E${R_RATE}/1000")
     yline(21,"ИТОГО ТОиР (авто) → «Данные по годам»","тыс/год",M,green=True,
-          formula=lambda col:f"{col}12+{col}13+{col}14+{col}18+{col}19+{col}20")
+          formula=lambda col:f"({col}12+{col}13+{col}14+{col}18+{col}19+{col}20)*{TOIR_CAL[i]}")
     yline(22,"Удельный расход ДТ","кг/час",M1,values=FUEL_Y[i],inp=True)
     yline(23,"Расходники на ковш","руб/м³",M2,values=CONS_Y[i],inp=True)
 
@@ -857,7 +875,9 @@ print("Сравнение:",len(mrow))
 # ДАШБОРД (исполнительный)
 # ================================================================= #
 wd=wb.create_sheet(S_DASH); wd.sheet_view.showGridLines=False
-title(wd,"ИТОГОВЫЙ ДАШБОРД — СРАВНЕНИЕ ЭКСКАВАТОРОВ","Ключевые показатели и графики. Данные обновляются автоматически.",last="N")
+_verlbl=("ВЕРСИЯ «КАК В ОФИЦИАЛЬНОМ ФАЙЛЕ» (ТОиР калиброван под 000_БСЛ-2027 от 30.07.2026)"
+         if MODE=="official" else "ВЕРСИЯ «ДАННЫЕ ПОСТАВЩИКА» (ТОиР снизу вверх из каталогов ТКП, коэф.=1)")
+title(wd,"ИТОГОВЫЙ ДАШБОРД — СРАВНЕНИЕ ЭКСКАВАТОРОВ",_verlbl+". Данные обновляются автоматически.",last="N")
 for col,w in (("A",2),("B",22),("C",22),("D",22),("E",22),("F",6),("G",13),("H",13),("I",15),("J",13)):
     wd.column_dimensions[col].width=w
 # KPI-плитки
@@ -1228,7 +1248,8 @@ order=[S_MET,S_DASH,S_PAR,S_IN]+TPL_NAMES+[S_PYR,S_PROD,S_CF,S_ANN,S_CMP,S_ANL,S
 wb._sheets.sort(key=lambda s:order.index(s.title))
 wb.active=1     # Дашборд
 wb.calculation.fullCalcOnLoad=True
-OUT="Модель_TCO_экскаваторов_аннуитет.xlsx"
+OUT=("Модель_TCO_экскаваторов_ОФИЦИАЛ.xlsx" if MODE=="official"
+     else "Модель_TCO_экскаваторов_данные_поставщика.xlsx")
 wb.save(OUT)
 # встроить кэшированные значения формул (чтобы просмотрщики без пересчёта показывали числа)
 try:
