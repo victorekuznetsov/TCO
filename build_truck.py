@@ -213,7 +213,7 @@ print("Ввод:",len(irow))
 # ================================================================= #
 # ЛИСТЫ-ШАБЛОНЫ ПОСТАВЩИКОВ — ТО и Ремонты ПО ГОДАМ
 # ================================================================= #
-# Реальные данные "в расчёте" из 000_БСЛ-2027 (Автосамосвалы), 10 лет
+# Реальные КТГ "в расчёте" (прямой ввод — управляет производительностью), 10 лет
 KTG_Y={
  0:[0.9376,0.9304,0.9209,0.9084,0.9333,0.9217,0.9313,0.9111,0.9171,0.9322],
  1:[0.9116,0.8956,0.8493,0.8060,0.8990,0.8221,0.8886,0.8107,0.8562,0.8340],
@@ -221,55 +221,58 @@ KTG_Y={
  3:[0.9096,0.8842,0.7740,0.8842,0.9096,0.7480,0.9096,0.8842,0.9096,0.8842],
  4:[0.9083,0.8858,0.8646,0.8748,0.8813,0.8464,0.8971,0.8546,0.8420,0.8611],
  5:[0.93,0.908,0.899,0.881,0.901,0.87,0.851,0.892,0.858,0.852]}
-DT_TO={  # простои на ТО, ч/год
- 0:[173.404,202.004,173.404,202.004,173.404,202.004,202.004,173.404,202.004,173.404],
- 1:[153.0]*10, 2:[186.0]*10, 3:[196.0]*10,
- 4:[249.395,238.375,238.375,238.375,238.375,238.375,238.375,238.375,238.375,238.375],
- 5:[249.395,238.375,238.375,238.375,238.375,238.375,238.375,238.375,238.375,238.375]}
-DT_REM={  # простои в ремонтах, ч/год
+DT_REM={  # простои в ремонтах, ч/год (справочно; КТГ вводится напрямую)
  0:[139,175,289,373,177,253,167,377,295,187],
  1:[420,505,905,1287,455,1132,485,1290,782,1155],
  2:[280,570,750,505,930,505,750,505,930,660],
  3:[425,690,1600,690,425,1800,425,690,425,690],
  4:[135,341,417.667,588,402,680.333,549,487,793,842.333],
  5:[135,341,417.667,588,402,680.333,549,487,793,842.333]}
-TO_Y={  # ТО (ЗЧ+смазочные), тыс.вал/год
- 0:[297.274]*10, 1:[154.719]*10, 2:[93.681]*10, 3:[217.032]*10,
- 4:[62.265,51.1,51.1,51.1,51.1,51.1,51.1,51.1,51.1,51.1],
- 5:[49.6,41.135,41.135,41.135,41.135,41.135,41.135,41.135,41.135,41.135]}
-TR_Y={  # текущие ремонты, тыс.вал/год
- 0:[0.0]*10, 1:[0.0]*10, 2:[17.931]*10, 3:[7.5]*10,
- 4:[16.5,183.7,158.5,50.7,163.5,188.7,35.5,198.7,173.5,70.7],
- 5:[15.011,77.065,50.721,89.861,60.141,102.874,80.547,64.172,74.323,90.366]}
-PPR_Y={  # планово-предупредительные (капитальные) ремонты, тыс.вал/год
- 0:[0,151.61,3293.541,1329.651,207.444,3259.167,47.962,1481.261,6533.292,44.023],
- 1:[4.931,88.53,701.511,2494.29,7.014,785.11,4.931,2494.29,4.931,4.931],
- 2:[0,62.211,433.633,156.454,803.169,592.571,103.048,120.245,1178.573,39.493],
- 3:[22.18,117.302,1471.522,117.302,22.18,1566.643,22.18,117.302,22.18,117.302],
- 4:[0,0,267.4,530,327,338.2,14.2,490,620.2,0],
- 5:[0,0,410.928,652.532,158.405,339.483,71.445,721.657,497.888,0]}
-LABTO_Y={  # сервис (трудозатраты) — ТО, тыс.вал/год
- 0:[126.063,147.913,126.063,147.913,126.063,147.913,147.913,126.063,147.913,126.063],
- 1:[19.44]*10, 2:[17.204]*10, 3:[50.416]*10,
- 4:[60.181,59.257,59.257,59.257,59.257,59.257,59.257,59.257,59.257,59.257],
- 5:[48.632,46.483,46.483,46.483,46.483,46.483,46.483,46.483,46.483,46.483]}
-LABREM_Y={  # сервис (трудозатраты) — ремонты, тыс.вал/год
- 0:[47.368,57.3,158.53,286.118,56.536,80.22,144.014,279.624,81.748,74.108],
- 1:[1.44,14.04,52.47,82.89,3.06,65.07,1.44,82.89,1.44,1.44],
- 2:[6.532,20.24,35.512,19.872,41.952,19.872,35.512,19.872,41.952,27.692],
- 3:[2.208,237.323,134.734,237.323,2.208,369.849,2.208,237.323,2.208,237.323],
- 4:[9.101,23.544,35.811,35.949,30.766,51.362,20.438,48.137,57.693,50.452],
- 5:[17.55,44.33,66.17,81.51,58.5,106.99,83.85,98.28,145.47,157.17]}
-TOIR_CUR=["CNY","USD","USD","USD","USD","USD"]
+# --- Каталоги ТО и Ремонтов в формате модели экскаваторов ---------------------
+# В присланных ТКП детализация ремонтов по узлам с ресурсом (м/ч) дана только у
+# NHL NTE240 — его каталог принят КЛАССОВЫМ ШАБЛОНОМ для всех машин 220–240 т.
+# «Коэффициент калибровки» приводит ИТОГО ТОиР каждой машины к уровню её ТКП.
+NARA=7000.0            # наработка, м/ч в год (из исходного файла)
+RATE=191.0             # ставка сервиса, вал/ч·час (NHL NTE240)
+TO_INT=[("ТО-1",250,2.4,3),("ТО-2",500,8.332,4),("ТО-3",1000,9.68,4),
+        ("ТО-4",2000,11.28,4),("ТО-5",5000,18.6,4),("ТО-6",10000,28.6,4)]
+INT2NO={iv:k+1 for k,(_,iv,_,_) in enumerate(TO_INT)}
+# каталог ЗЧ ТО: (наименование, цена за ед, кол-во на ТО, интервал ТО, м/ч)
+TO_PARTS=[("Фильтр 4323856",446.41,1,250),("Фильтр 5375337",1131.08,4,250),("Фильтр 2881458",1711.91,3,250),
+ ("Масло 15W-40",3,280,250),("Смазка 1-100 HD",3,50,250),("Антифриз HD Long Life",7,40,250),
+ ("Фильтр 916254/20059910",1146.86,3,500),("Фильтр 20070596",5185.61,1,500),("Фильтр 4328043",2381.38,1,500),
+ ("Фильтр 3100308",133.17,2,500),("Фильтр UR24465",810,2,1000),("Фильтр 20042559",814.95,4,1000),
+ ("Фильтр 20042560",1895.1,4,1000),("Фильтр 20039876",3242.88,1,1000),("Фильтр 20046992",64.4,1,1000),
+ ("Фильтр 20046634",452.98,1,1000),("Фильтр UR24465 (2)",810,2,1000),("Масло 680",0,80,2000),
+ ("Фильтр 20038263",3851.98,1,5000),("Масло Hydraulic Oil 32",0,908,5000),("Фильтр 55894",1901.07,1,5000),
+ ("Антифриз HD Long Life (2)",7,662,5000),("Смазка ЕР 1,5-460",4,7,5000),("Смазка ЕР 1,5-460 (2)",4,2.5,5000)]
+# каталог капремонтов: затраты (наименование, стоимость замены, ресурс м/ч)
+CAP_COST=[("Двигатель",2327660.9,20000),("Турбокомпрессор",107587.4,14000),("Блок инжектора",34579.09,20000),
+ ("Глушитель",9439.29,20000),("Главный Генератор",33592.96,25000),("РМК",542755.97,25000),("Ретардер",128694.84,25000),
+ ("Подвеска (перед. и задняя)",36095.04,20000),("Гидроцилиндры цом",33889.12,25000),("Гидроцилиндры рул",4198.2,20000),
+ ("Насос гидравлический",76284.34,20000),("Насос рулевой",49282.33,20000),("Радиатор",504000,20000),
+ ("Радиатор гидравлический",7872,30000),("Вентилятор",69523.91,20000),("Водяной насос охлаждения",90492.93,20000),
+ ("Насос ЦСС",47961.74,15000),("Подшипники передней оси",47961.74,25000),("Ходовая часть + прочие работы",44023,10000)]
+# каталог капремонтов: трудозатраты (наименование, нормо-час/событие, ресурс м/ч)
+CAP_LABOR=[("Двигатель",450,20000),("Турбокомпрессор",20,14000),("Блок инжектора",6,20000),("Глушитель",4,20000),
+ ("Главный Генератор",200,25000),("РМК",700,25000),("Ретардер",80,25000),("Подвеска (перед. и задняя)",20,20000),
+ ("Гидроцилиндры цом",22,25000),("Гидроцилиндры рул",8,20000),("Насос гидравлический",8,20000),("Насос рулевой",8,20000),
+ ("Радиатор",24,20000),("Радиатор гидравлический",10,30000),("Вентилятор",12,20000),("Водяной насос охлаждения",8,20000),
+ ("Насос ЦСС",20,15000),("Подшипники передней оси",16,25000),("Ходовая часть + прочие работы",452,10000)]
+# коэффициент калибровки ИТОГО ТОиР под данные ТКП поставщика (шаблон=NHL → ≈1)
+COEF=[0.9897,2.8678,1.6754,2.5923,1.7615,1.7609]
+TOIR_CUR=["CNY"]*NM     # каталог-шаблон в ¥; коэффициент калибровки поглощает валюту
 TPL_NAMES=[f"Поставщик {i+1}" for i in range(NM)]
 
+NP=len(TO_PARTS); NCC=len(CAP_COST); NCL=len(CAP_LABOR); NI=len(TO_INT)
 tpl={}
 for i in range(NM):
     ws=wb.create_sheet(TPL_NAMES[i]); ws.sheet_view.showGridLines=False
-    title(ws,f"ДАННЫЕ ПОСТАВЩИКА — ВАРИАНТ {i+1} (ТО и Ремонты ПО ГОДАМ)",
-          "Жёлтое — ввод (данные поставщика/расчёта). Зелёное — авто; сводка тянется в «Данные по годам».",last="N")
-    ws.column_dimensions["A"].width=2; ws.column_dimensions["B"].width=44; ws.column_dimensions["C"].width=11; ws.column_dimensions["D"].width=11
+    title(ws,f"ДАННЫЕ ПОСТАВЩИКА — ВАРИАНТ {i+1} (ТО и Ремонты — модель по узлам)",
+          "Жёлтое — ввод. Зелёное — авто (снизу вверх). ИТОГО ТОиР = (ЗЧ ТО + ЗЧ капремонтов + сервис) × коэф.калибровки; тянется в «Данные по годам».",last="P")
+    ws.column_dimensions["A"].width=2; ws.column_dimensions["B"].width=42; ws.column_dimensions["C"].width=12; ws.column_dimensions["D"].width=11
     for p in range(1,H+1): ws.column_dimensions[PCOLS[p]].width=10
+    ws.column_dimensions["P"].width=7
     ws.freeze_panes="E8"
     ws["B4"]="Автосамосвал:"; ws["B4"].font=FB
     ws.merge_cells("E4:N4"); ws["E4"]=f"='{S_IN}'!{MACH[i]}{irow['name']}"; ws["E4"].font=Font(bold=True,color=DARK); ws["E4"].alignment=L
@@ -287,43 +290,130 @@ for i in range(NM):
         ws[f"C{r}"]=unit; ws[f"C{r}"].font=FU; ws[f"C{r}"].border=BD; ws[f"C{r}"].alignment=C
         for p in range(1,H+1):
             col=PCOLS[p]; c=ws[f"{col}{r}"]; c.border=BD; c.alignment=C; c.number_format=fmt; c.font=(FRz if green else FN)
-            if formula: c.value="="+formula(col); c.fill=Fr
+            if formula: c.value="="+formula(col,p); c.fill=Fr
             else:
                 if values is not None: c.value=values[p-1]
                 if inpc: c.fill=Fi
 
-    section(ws,7,"СВОДКА ПО ГОДАМ (зелёное — авто; тянется в расчёт)","B","N")
-    R_DTTO=19; R_DTREM=20; R_TO=21; R_TR=22; R_PPR=23; R_LABTO=24; R_LABREM=25
-    yline(8,"Простои на ТО","ч/год",M,green=True,formula=lambda col:f"{col}{R_DTTO}")
-    yline(9,"Простои в ремонтах","ч/год",M,green=True,formula=lambda col:f"{col}{R_DTREM}")
+    # --- фиксированная разметка (каталог одинакового размера у всех машин) ---
+    R_NARA=22; R_INT0=24; R_INTN=R_INT0+NI-1; R_INTHDR=R_INT0-1     # интервалы ТО
+    R_TODT0=R_INTN+2; R_TODT_TOT=R_TODT0+NI                          # простои по ТО
+    R_TOCH0=R_TODT_TOT+1; R_TOCH_TOT=R_TOCH0+NI                      # чел-часы по ТО
+    R_CATSEC=R_TOCH_TOT+2; R_CATHDR=R_CATSEC+1; R_CAT0=R_CATHDR+1
+    R_CATN=R_CAT0+NP-1; R_CATCORR=R_CATN+1; R_CATTOT=R_CATCORR+1
+    R_CCSEC=R_CATTOT+2; R_CCHDR=R_CCSEC+1; R_CC0=R_CCHDR+1; R_CCN=R_CC0+NCC-1; R_CCTOT=R_CCN+1
+    R_CLSEC=R_CCTOT+2; R_CLHDR=R_CLSEC+1; R_CL0=R_CLHDR+1; R_CLN=R_CL0+NCL-1; R_CLTOT=R_CLN+1
+    R_COEF=8+9  # 17 — коэффициент калибровки (в сводке)
+
+    # ---- СВОДКА ПО ГОДАМ ----
+    section(ws,7,"СВОДКА ПО ГОДАМ (зелёное — авто снизу вверх; тянется в расчёт)","B","N")
+    yline(8,"Простои на ТО (авто из интервалов)","ч/год",M1,green=True,formula=lambda col,p:f"{col}{R_TODT_TOT}")
+    yline(9,"Простои в ремонтах (справочно)","ч/год",M,values=DT_REM[i],inpc=True)
     yline(10,"Ежесменный осмотр (20 мин/смену), справочно","ч/год",M,green=True,
-          formula=lambda col:f"({pc('kfv')}-{col}8-{col}9)/{pc('shift')}*20/60")
-    yline(11,"КТГ (техготовность) → «Данные по годам»","коэф.",P1,values=KTG_Y[i],inpc=True)
-    yline(12,"Затраты на ТО (ЗЧ+смазочные)","тыс.вал/г",M2,green=True,formula=lambda col:f"{col}{R_TO}")
-    yline(13,"Затраты на текущие ремонты","тыс.вал/г",M2,green=True,formula=lambda col:f"{col}{R_TR}")
-    yline(14,"Затраты на капитальные/ППР ремонты","тыс.вал/г",M2,green=True,formula=lambda col:f"{col}{R_PPR}")
-    yline(15,"Сервис (трудозатраты) — ТО","тыс.вал/г",M2,green=True,formula=lambda col:f"{col}{R_LABTO}")
-    yline(16,"Сервис (трудозатраты) — ремонты","тыс.вал/г",M2,green=True,formula=lambda col:f"{col}{R_LABREM}")
-    yline(17,"ИТОГО ТОиР → «Данные по годам»","тыс.вал/г",M2,green=True,
-          formula=lambda col:f"{col}12+{col}13+{col}14+{col}15+{col}16")
+          formula=lambda col,p:f"({pc('kfv')}-{col}8-{col}9)/{pc('shift')}*20/60")
+    yline(11,"КТГ (техготовность, ВВОД) → «Данные по годам»","коэф.",P1,values=KTG_Y[i],inpc=True)
+    yline(12,"Затраты на ЗЧ ТО (авто из каталога)","тыс.вал/г",M2,green=True,formula=lambda col,p:f"{col}{R_CATTOT}")
+    yline(13,"Затраты на ЗЧ капремонтов (авто по ресурсу)","тыс.вал/г",M2,green=True,formula=lambda col,p:f"{col}{R_CCTOT}")
+    yline(14,"Трудозатраты ТО (авто)","ч-час/г",M1,green=True,formula=lambda col,p:f"{col}{R_TOCH_TOT}")
+    yline(15,"Трудозатраты капремонтов (авто)","ч-час/г",M1,green=True,formula=lambda col,p:f"{col}{R_CLTOT}")
+    yline(16,"Сервис (трудозатраты) ТО+капремонты","тыс.вал/г",M2,green=True,
+          formula=lambda col,p:f"({col}14+{col}15)*$E${R_NARA-1}/1000")
+    # коэффициент калибровки — одна ячейка (E17), применяется ко всем годам
+    ws[f"B{R_COEF}"]="Коэффициент калибровки ИТОГО под ТКП"; ws[f"B{R_COEF}"].font=FN; ws[f"B{R_COEF}"].border=BD; ws[f"B{R_COEF}"].alignment=L
+    ws[f"C{R_COEF}"]="коэф."; ws[f"C{R_COEF}"].font=FU; ws[f"C{R_COEF}"].border=BD; ws[f"C{R_COEF}"].alignment=C
+    cc=ws[f"E{R_COEF}"]; cc.value=COEF[i]; cc.fill=Fi; cc.border=BD; cc.alignment=C; cc.number_format=M2; cc.font=FB
+    yline(18,"ИТОГО ТОиР → «Данные по годам»","тыс.вал/г",M2,green=True,
+          formula=lambda col,p:f"({col}12+{col}13+{col}16)*$E${R_COEF}")
 
-    section(ws,18,"ВВОД ДАННЫХ ПОСТАВЩИКА ПО ГОДАМ (жёлтое)","B","N")
-    yline(R_DTTO,"Простои на ТО","ч/год",M,values=DT_TO[i],inpc=True)
-    yline(R_DTREM,"Простои в ремонтах","ч/год",M,values=DT_REM[i],inpc=True)
-    yline(R_TO,"Затраты на ТО (ЗЧ+смазочные)","тыс.вал/г",M2,values=TO_Y[i],inpc=True)
-    yline(R_TR,"Затраты на текущие ремонты","тыс.вал/г",M2,values=TR_Y[i],inpc=True)
-    yline(R_PPR,"Затраты на капитальные/ППР ремонты","тыс.вал/г",M2,values=PPR_Y[i],inpc=True)
-    yline(R_LABTO,"Сервис (трудозатраты) — ТО","тыс.вал/г",M2,values=LABTO_Y[i],inpc=True)
-    yline(R_LABREM,"Сервис (трудозатраты) — ремонты","тыс.вал/г",M2,values=LABREM_Y[i],inpc=True)
+    # ставка сервиса (для строки 16): используем ячейку над наработкой
+    ws[f"B{R_NARA-1}"]="Ставка сервиса"; ws[f"B{R_NARA-1}"].font=FN; ws[f"B{R_NARA-1}"].border=BD; ws[f"B{R_NARA-1}"].alignment=L
+    ws[f"C{R_NARA-1}"]="вал/ч·час"; ws[f"C{R_NARA-1}"].font=FU; ws[f"C{R_NARA-1}"].border=BD; ws[f"C{R_NARA-1}"].alignment=C
+    sr=ws[f"E{R_NARA-1}"]; sr.value=RATE; sr.fill=Fi; sr.border=BD; sr.alignment=C; sr.number_format=M1; sr.font=FB
 
-    tpl[i]={"sheet":TPL_NAMES[i],"ktg":11,"itogo":17,"cur":"$D$5"}
-    NOTEROW=27
-    ws.merge_cells(f"B{NOTEROW}:N{NOTEROW}")
-    nt=ws[f"B{NOTEROW}"]; nt.value=("Строки 18–24 — ввод (жёлтое): простои и затраты ТОиР по годам, в валюте (см. «Валюта затрат ТОиР»). "
-     "Пересчёт в рубли — в «Денежном потоке» по курсу с листа «Параметры». Данные примера — «в расчёте» из 000_БСЛ-2027 "
-     "(карьер «Сухой Лог»). «Рваный» график капремонтов по годам учитывается дисконтированием.")
+    # ---- РАСЧЁТ ТО (по интервалам обслуживания) ----
+    section(ws,R_NARA-2,"РАСЧЁТ ТО (по интервалам обслуживания), ПО ГОДАМ","B","N")
+    yline(R_NARA,"Наработка по годам","м/час",M,values=[NARA]*H,inpc=True)
+    for k,h in enumerate(["Вид ТО","интервал, м/ч","простой/ТО, ч","персонал"]):
+        c=ws.cell(row=R_INTHDR,column=2+k,value=h); c.font=FHd; c.fill=Fh; c.border=BD; c.alignment=C
+    for k,(nm,iv,dt,crew) in enumerate(TO_INT):
+        r=R_INT0+k
+        ws.cell(row=r,column=2,value=nm).font=FN; ws.cell(row=r,column=2).border=BD; ws.cell(row=r,column=2).alignment=L
+        for cc2,val,fmt in ((3,iv,M),(4,dt,M2),(5,crew,M)):
+            c=ws.cell(row=r,column=cc2,value=val); c.fill=Fi; c.border=BD; c.alignment=C; c.number_format=fmt
+    for k in range(NI):
+        rr=R_TODT0+k; ref=R_INT0+k
+        yline(rr,f"{TO_INT[k][0]}: простои, ч/год","ч",M2,green=True,
+              formula=lambda col,p,ref=ref:f"{col}${R_NARA}/$C{ref}*$D{ref}")
+    ws.cell(row=R_TODT_TOT,column=2,value="Итого простои ТО").font=FRz; ws.cell(row=R_TODT_TOT,column=2).border=BD; ws.cell(row=R_TODT_TOT,column=2).alignment=L
+    for p in range(1,H+1):
+        col=PCOLS[p]; c=ws[f"{col}{R_TODT_TOT}"]; c.value=f"=SUM({col}{R_TODT0}:{col}{R_TODT0+NI-1})"
+        c.fill=Fr; c.border=BD; c.alignment=C; c.number_format=M2; c.font=FRz
+    for k in range(NI):
+        rr=R_TOCH0+k; dtr=R_TODT0+k; ref=R_INT0+k
+        yline(rr,f"{TO_INT[k][0]}: чел-часы/год","ч-час",M2,green=True,
+              formula=lambda col,p,dtr=dtr,ref=ref:f"{col}{dtr}*$E{ref}")
+    ws.cell(row=R_TOCH_TOT,column=2,value="Итого чел-часы ТО").font=FRz; ws.cell(row=R_TOCH_TOT,column=2).border=BD; ws.cell(row=R_TOCH_TOT,column=2).alignment=L
+    for p in range(1,H+1):
+        col=PCOLS[p]; c=ws[f"{col}{R_TOCH_TOT}"]; c.value=f"=SUM({col}{R_TOCH0}:{col}{R_TOCH0+NI-1})"
+        c.fill=Fr; c.border=BD; c.alignment=C; c.number_format=M2; c.font=FRz
+
+    # ---- КАТАЛОГ ЗЧ ТО ----
+    section(ws,R_CATSEC,"КАТАЛОГ ЗАПЧАСТЕЙ ТО (заполняет подрядчик), ПО ГОДАМ","B","N")
+    for k,h in enumerate(["Наименование","цена за ед","кол-во/ТО"]):
+        c=ws.cell(row=R_CATHDR,column=2+k,value=h); c.font=FHd; c.fill=Fh; c.border=BD; c.alignment=C
+    ws.cell(row=R_CATHDR,column=16,value="№ ТО").font=FHd; ws.cell(row=R_CATHDR,column=16).fill=Fh; ws.cell(row=R_CATHDR,column=16).border=BD; ws.cell(row=R_CATHDR,column=16).alignment=C
+    for k,(nm,price,qty,iv) in enumerate(TO_PARTS):
+        r=R_CAT0+k
+        ws.cell(row=r,column=2,value=nm).font=FN; ws.cell(row=r,column=2).border=BD; ws.cell(row=r,column=2).alignment=L
+        ws.cell(row=r,column=3,value=price); ws.cell(row=r,column=4,value=qty); ws.cell(row=r,column=16,value=INT2NO[iv])
+        for cc2 in (3,4,16): ws.cell(row=r,column=cc2).fill=Fi; ws.cell(row=r,column=cc2).border=BD; ws.cell(row=r,column=cc2).alignment=C; ws.cell(row=r,column=cc2).number_format=(M2 if cc2!=16 else M)
+        for p in range(1,H+1):
+            col=PCOLS[p]
+            f=ws.cell(row=r,column=4+p,value=f"={col}${R_NARA}/INDEX($C${R_INT0}:$C${R_INTN},$P{r})*D{r}*C{r}/1000")
+            f.fill=Fr; f.border=BD; f.alignment=C; f.number_format=M2; f.font=FRz
+    ws.cell(row=R_CATCORR,column=2,value="Корректировка (прочее)").font=FN; ws.cell(row=R_CATCORR,column=2).border=BD; ws.cell(row=R_CATCORR,column=2).alignment=L
+    for p in range(1,H+1):
+        col=PCOLS[p]; c=ws.cell(row=R_CATCORR,column=4+p,value=0); c.fill=Fi; c.border=BD; c.alignment=C; c.number_format=M2
+    ws.cell(row=R_CATTOT,column=2,value="ИТОГО ЗЧ ТО, тыс.вал/год").font=FRz; ws.cell(row=R_CATTOT,column=2).border=BD; ws.cell(row=R_CATTOT,column=2).alignment=L
+    for p in range(1,H+1):
+        col=PCOLS[p]; c=ws.cell(row=R_CATTOT,column=4+p,value=f"=SUM({col}{R_CAT0}:{col}{R_CATCORR})")
+        c.fill=Fr; c.border=BD; c.alignment=C; c.number_format=M2; c.font=FRz
+
+    # ---- РАСЧЁТ КАПРЕМОНТОВ (по ресурсу замены узла) ----
+    def rem_block(sec,hdr,r0,items,title_txt,valhdr,to_thousands):
+        section(ws,sec,title_txt,"B","N")
+        for cc2,h in ((2,"Наименование"),(3,valhdr),(4,"ресурс, м/ч")):
+            c=ws.cell(row=hdr,column=cc2,value=h); c.font=FHd; c.fill=Fh; c.border=BD; c.alignment=C
+        for p in range(1,H+1):
+            c=ws.cell(row=hdr,column=4+p,value=f"год {p}"); c.font=FHd; c.fill=Fh; c.border=BD; c.alignment=C
+        for k,(nm,val,res) in enumerate(items):
+            r=r0+k
+            ws.cell(row=r,column=2,value=nm).font=FN; ws.cell(row=r,column=2).border=BD; ws.cell(row=r,column=2).alignment=L
+            ws.cell(row=r,column=3,value=val); ws.cell(row=r,column=4,value=res)
+            for cc2,fmt in ((3,M2),(4,M)): ws.cell(row=r,column=cc2).fill=Fi; ws.cell(row=r,column=cc2).border=BD; ws.cell(row=r,column=cc2).alignment=C; ws.cell(row=r,column=cc2).number_format=fmt
+            div="/1000" if to_thousands else ""
+            for p in range(1,H+1):
+                col=PCOLS[p]
+                f=ws.cell(row=r,column=4+p,value=f"=(INT($E${R_NARA}*{p}/$D{r})-INT($E${R_NARA}*({p}-1)/$D{r}))*$C{r}{div}")
+                f.fill=Fr; f.border=BD; f.alignment=C; f.number_format=M2; f.font=FRz
+        tot=r0+len(items)
+        ws.cell(row=tot,column=2,value="ИТОГО").font=FRz; ws.cell(row=tot,column=2).border=BD
+        for p in range(1,H+1):
+            col=PCOLS[p]; c=ws.cell(row=tot,column=4+p,value=f"=SUM({col}{r0}:{col}{tot-1})")
+            c.fill=Fr; c.border=BD; c.alignment=C; c.number_format=M2; c.font=FRz
+    rem_block(R_CCSEC,R_CCHDR,R_CC0,CAP_COST,"КАПИТАЛЬНЫЕ РЕМОНТЫ — ЗАТРАТЫ НА ЗЧ (по ресурсу до замены узла)","стоим.замены,вал",True)
+    rem_block(R_CLSEC,R_CLHDR,R_CL0,CAP_LABOR,"КАПИТАЛЬНЫЕ РЕМОНТЫ — ТРУДОЗАТРАТЫ (по ресурсу до замены узла)","нормо-час/событие",False)
+
+    tpl[i]={"sheet":TPL_NAMES[i],"ktg":11,"itogo":18,"cur":"$D$5"}
+    NOTEROW=R_CLTOT+2
+    ws.merge_cells(f"B{NOTEROW}:P{NOTEROW}")
+    nt=ws[f"B{NOTEROW}"]; nt.value=("Модель ТО и Ремонтов — как у экскаваторов: ТО по интервалам обслуживания (простои, чел-часы, каталог ЗЧ по годам) и "
+     "капремонты ПО ПЕРИОДИЧНОСТИ (у каждого узла — стоимость/трудоёмкость замены и ресурс, м/ч; затрата возникает в годы, когда наработка "
+     "пересекает кратное ресурсу значение). Каталог узлов детально заполнен по ТКП NHL NTE240 (класс 220–240 т) и принят ШАБЛОНОМ; "
+     "«Коэффициент калибровки» приводит ИТОГО ТОиР к уровню данных конкретного поставщика (у NHL NTE240 ≈ 1). Замените каталог реальными "
+     "позициями из ТКП и установите коэффициент = 1. КТГ вводится напрямую (строка 11) и управляет производительностью.")
     nt.font=Font(size=9,italic=True,color="808080"); nt.alignment=L
-print("Листы-шаблоны поставщиков (ТО+Ремонты по годам):",NM)
+print("Листы-шаблоны поставщиков (модель ТО/Ремонтов по узлам):",NM)
 
 # --- СВОДКА «Данные по годам» ---
 wy=wb.create_sheet(S_PYR); wy.sheet_view.showGridLines=False
