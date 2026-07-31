@@ -32,6 +32,23 @@ from openpyxl.chart.label import DataLabelList
 from openpyxl.chart.series import SeriesLabel
 from openpyxl.chart.data_source import StrRef
 from openpyxl.worksheet.datavalidation import DataValidation
+import sys, statistics
+
+# ================================================================= #
+# РЕЖИМ СБОРКИ — две версии, сверенные с корпоративным файлом 000_БСЛ-2027
+# (Автосамосвалы 220 т, версия 31.07.2026). ЦЕНЫ САМОСВАЛОВ ОДИНАКОВЫ в обеих версиях;
+# отличаются только допущения (срок службы, КТГ, ТОиР):
+#   "supplier"  — «ДАННЫЕ ПОСТАВЩИКА»: как заявлено поставщиками (срок ~10 лет,
+#                 КТГ по ТКП, ТОиР по ТКП — «Свод_1»).
+#   "producer"  — «ДАННЫЕ ПРОИЗВОДСТВА»: скорректировано по паспорту завода
+#                 (срок службы 8–20 лет, факт. КТГ, дифференцированный ТОиР — «Свод»).
+# Запуск:  python3 build_truck.py supplier | python3 build_truck.py producer
+# ================================================================= #
+MODE = sys.argv[1] if len(sys.argv) > 1 else "producer"
+assert MODE in ("supplier", "producer"), "MODE: supplier | producer"
+VER_LABEL = ("ВЕРСИЯ «ДАННЫЕ ПОСТАВЩИКА» (по ТКП: срок ~10 лет, КТГ и ТОиР как заявлено)"
+             if MODE=="supplier" else
+             "ВЕРСИЯ «ДАННЫЕ ПРОИЗВОДСТВА» (паспорт завода: срок 8–20 лет, факт. КТГ, дифф. ТОиР)")
 
 S_MET="Методика"; S_DASH="Дашборд"; S_PAR="Параметры"; S_IN="Ввод данных"
 S_PYR="Данные по годам"
@@ -122,10 +139,10 @@ padd(28,"dist","Расстояние транспортировки (плечо)
 padd(29,"speed","Средняя техническая скорость",22.46,"км/час",M2,"С учётом профиля трассы")
 padd(30,"kig","КИГ (использование грузоподъёмности)",0.9837,"коэф.",NUM,"Доля номинальной грузоподъёмности (факт NTE)")
 padd(31,"trip_fix","Фикс. время рейса (подход+погр+разгр+прочее)",8.4,"мин",M1,"Подход/погрузка/разгрузка 7,9 + прочие 0,5")
-padd(32,"fuel_r","Удельный расход топлива",90,"г/ткм",M,"На тонно-километр грузооборота")
+padd(32,"fuel_r","Удельный расход топлива",78.4,"г/ткм",M,"На тонно-километр грузооборота")
 
 section(wp,34,"Шины","B","E"); phdr(35)
-padd(36,"tire_r","Удельный расход шин",0.075,"шт./тыс.км",NUM,"Комплект/износ на пробег")
+padd(36,"tire_r","Удельный расход шин",0.0563,"шт./тыс.км",NUM,"Комплект/износ на пробег")
 padd(37,"tire_p","Цена шины",2985.38,"тыс.руб/шт","#,##0.00","DDP, без НДС (типоразмер 50/80R57 и аналоги)")
 
 section(wp,39,"Транспортный налог и персонал","B","E"); phdr(40)
@@ -150,12 +167,22 @@ names=["NHL NTE 240","Estar ESDE240\n(ГПБ К)","SANY SET240S","TZCO TZE240",
        "БелАЗ 7531\n(ГПФК)","БелАЗ 7531\n(БТЛ)"]
 supplier=["Горная Евразия","ГПБ","ИСТК","ИСТК","ГПФК","БТЛ"]
 engines=["электро (2500 л.с.)","1864 л.с.","2843 л.с.","2500 л.с.","2535 л.с.","2535 л.с."]
-# цена — В ФАЙЛЕ НЕ УКАЗАНА (строка инвестиций пуста): ОЦЕНКА, уточнить
-price_val=[20000,2800,2700,2700,300000,290000]
-price_cur=["CNY","USD","USD","USD","RUB","RUB"]
+# Цены — по варианту «Производство» файла 000_БСЛ-2027 (Автосамосвалы 220 т, 31.07.2026), тыс.руб
+price_val=[312568.63,319027.49,296085.09,302883.56,287367.57,287367.58]
+price_cur=["RUB","RUB","RUB","RUB","RUB","RUB"]
 install=[0]*NM; resid=[0.0]*NM
-payload=[227.8,211.392,216.362,222,231,231]     # грузоподъёмность (в расчёте), т
-eng_hp=[2500,1864,2843,2500,2535,2535]          # мощность двигателя, л.с. (транспортный налог)
+payload=[227.8,211.392,216.362,222,226.5,226.5]  # грузоподъёмность (в расчёте), т — «Производство»
+eng_hp=[2500,2500,2843,2500,2535,2535]           # мощность двигателя, л.с. (транспортный налог)
+# Эффективное плечо откатки, км — СРЕДНЕВЗВЕШЕННОЕ по годам за СОБСТВЕННЫЙ срок службы
+# каждой машины (профиль плеча растёт по годам: 3,0→6,8 км). Долгоживущий NTE (20 лет)
+# усредняет более дальние поздние годы, короткоживущий TZCO (8 лет) — только ближние.
+# Плечо зависит от срока службы → отличается между версиями там, где отличается срок.
+haul=([4.253,4.253,4.248,4.079,4.248,4.248] if MODE=="supplier"     # срок 10/10/10/8/10/10
+      else [4.803,4.253,4.390,4.073,4.254,4.254])                   # срок 20/10/12/8/10/10
+# Срок службы, установленный заводом-изготовителем («Производство»): NTE 20, ESDE 10,
+# SANY 12, TZCO 8, БелАЗ 10/10. Инвестиционный аннуитет считается методом эквивалентной
+# годовой стоимости (EAC) по СОБСТВЕННОМУ сроку службы каждой машины.
+LIFE=([10,10,10,8,10,10] if MODE=="supplier" else [20,10,12,8,10,10])
 personnel=[18475.6]*NM                          # ФОТ+отчисления+прочее, тыс.руб/год
 
 wi=wb.create_sheet(S_IN); wi.sheet_view.showGridLines=False
@@ -181,8 +208,10 @@ LAY=[
  ("R","price_cur","Валюта цены","—",price_cur,"CNY / USD / EUR / RUB",True,None),
  ("R","install","Доставка, ПНР, шеф-монтаж","тыс.руб",install,"Дополнительно к цене",False,M),
  ("R","resid","Остаточная стоимость","% от цены",resid,"Реализация в конце срока (0 = не учитывать)",False,P1),
+ ("R","life","Срок службы (завод-изготовитель)","лет",LIFE,"Инвестиц. аннуитет (EAC) считается по этому сроку; влияет на чувствительность",False,M),
  ("SEC","C. ПРОИЗВОДИТЕЛЬНОСТЬ"),
  ("R","payload","Грузоподъёмность (в расчёте)","т",payload,"× КИГ (лист «Параметры») = фактическая загрузка",False,M1),
+ ("R","haul","Эффективное плечо откатки (за срок службы)","км",haul,"Средневзвешенное по годам плечо за срок службы машины",False,NUM),
  ("SEC","D. ПРОЧИЕ ГОДОВЫЕ ЗАТРАТЫ И ПАРАМЕТРЫ"),
  ("R","personnel","Расходы на персонал (экипаж)","тыс.руб/год",personnel,"ФОТ+отчисления+прочее на 1 машину",False,M1),
  ("R","eng_hp","Мощность двигателя (транспортный налог)","л.с.",eng_hp,"× ставку налога (руб/л.с.)",False,M),
@@ -214,13 +243,20 @@ print("Ввод:",len(irow))
 # ЛИСТЫ-ШАБЛОНЫ ПОСТАВЩИКОВ — ТО и Ремонты ПО ГОДАМ
 # ================================================================= #
 # Реальные КТГ "в расчёте" (прямой ввод — управляет производительностью), 10 лет
-KTG_Y={
+# Форма динамики КТГ по годам (провалы — годы капремонтов); уровень приводится к
+# среднему за срок службы по версии. Средние КТГ: «производство» выше (паспорт),
+# «поставщик» ниже (по ТКП, с учётом замечаний по завышению у SANY/БелАЗ).
+_KTG_SHAPE={
  0:[0.9376,0.9304,0.9209,0.9084,0.9333,0.9217,0.9313,0.9111,0.9171,0.9322],
  1:[0.9116,0.8956,0.8493,0.8060,0.8990,0.8221,0.8886,0.8107,0.8562,0.8340],
  2:[0.9357,0.9026,0.8659,0.9040,0.8500,0.9040,0.8659,0.9040,0.8500,0.8850],
  3:[0.9096,0.8842,0.7740,0.8842,0.9096,0.7480,0.9096,0.8842,0.9096,0.8842],
  4:[0.9083,0.8858,0.8646,0.8748,0.8813,0.8464,0.8971,0.8546,0.8420,0.8611],
  5:[0.93,0.908,0.899,0.881,0.901,0.87,0.851,0.892,0.858,0.852]}
+_KTG_AVG=([0.87,0.85,0.72,0.86,0.72,0.72] if MODE=="supplier"       # «Свод_1»
+          else [0.92,0.86,0.88,0.86,0.87,0.87])                     # «Свод»
+KTG_Y={i:[round(v*_KTG_AVG[i]/statistics.mean(_KTG_SHAPE[i]),4) for v in _KTG_SHAPE[i]]
+       for i in range(NM)}
 DT_REM={  # простои в ремонтах, ч/год (справочно; КТГ вводится напрямую)
  0:[139,175,289,373,177,253,167,377,295,187],
  1:[420,505,905,1287,455,1132,485,1290,782,1155],
@@ -260,7 +296,11 @@ CAP_LABOR=[("Двигатель",450,20000),("Турбокомпрессор",20
  ("Радиатор",24,20000),("Радиатор гидравлический",10,30000),("Вентилятор",12,20000),("Водяной насос охлаждения",8,20000),
  ("Насос ЦСС",20,15000),("Подшипники передней оси",16,25000),("Ходовая часть + прочие работы",452,10000)]
 # коэффициент калибровки ИТОГО ТОиР под данные ТКП поставщика (шаблон=NHL → ≈1)
-COEF=[0.9897,2.8678,1.6754,2.5923,1.7615,1.7609]
+# Калибровка ИТОГО ТОиР под «Среднегодовые затраты на ТО и ремонты» файла (тыс.руб/год):
+#   производство: [34,6 68,6 37,0 68,2 42,1 42,1] млн — дифференцирован по паспорту;
+#   поставщик:    [58,8 68,6 52,8 68,2 47,0 47,0] млн — по ТКП (у части машин выше).
+COEF=([2.1689,2.5286,1.9481,2.5172,1.7355,1.7355] if MODE=="supplier"
+      else [1.2755,2.5280,1.3644,2.5162,1.5540,1.5542])
 TOIR_CUR=["CNY"]*NM     # каталог-шаблон в ¥; коэффициент калибровки поглощает валюту
 TPL_NAMES=[f"Поставщик {i+1}" for i in range(NM)]
 
@@ -489,7 +529,7 @@ def cur_rate(col):
     cur=inp('price_cur',col)
     return f'IF({cur}="CNY",{pc("cny")},IF({cur}="USD",{pc("usd")},IF({cur}="EUR",{pc("eur")},1)))'
 padd2("price_rub","Стоимость в рублях","тыс.руб",lambda c:f"{inp('price_val',c)}*{cur_rate(c)}+{inp('install',c)}",M,bold=True)
-padd2("t_move","Время движения (гружёный+порожний)","мин",lambda c:f"2*{pc('dist')}/{pc('speed')}*60",M2)
+padd2("t_move","Время движения (гружёный+порожний)","мин",lambda c:f"2*{inp('haul',c)}/{pc('speed')}*60",M2)
 padd2("t_trip","Время рейса","мин",lambda c:f"{pc('trip_fix')}+{pref('t_move',c)}",M2)
 padd2("trips_h","Рейсов в час","рейс/час",lambda c:f"60/{pref('t_trip',c)}",M2)
 padd2("t_h","Часовая производительность","т/эфф.час",
@@ -524,8 +564,8 @@ for i in range(NM):
     r_kio=pr; pr=pyline(pr,"КИО","коэф.",P1,lambda col,p,r=r_ktg:f"{col}{r}*(1-{DT_TOTAL}/(60*{pc('shift')}))")
     r_eff=pr; pr=pyline(pr,"Эффективное время","час/год",M,lambda col,p,r=r_kio:f"{pc('kfv')}*{col}{r}")
     r_t=pr; pr=pyline(pr,"Объём перевозки","тыс.т",M,lambda col,p,r=r_eff,e=ec:f"{prodref('t_h',e)}*{col}{r}/1000")
-    r_tkm=pr; pr=pyline(pr,"Грузооборот","тыс.ткм",M,lambda col,p,r=r_t:f"{col}{r}*{pc('dist')}")
-    r_run=pr; pr=pyline(pr,"Пробег","тыс.км",M,lambda col,p,r=r_eff,e=ec:f"{prodref('trips_h',e)}*{col}{r}*2*{pc('dist')}/1000")
+    r_tkm=pr; pr=pyline(pr,"Грузооборот","тыс.ткм",M,lambda col,p,r=r_t,e=ec:f"{col}{r}*{inp('haul',e)}")
+    r_run=pr; pr=pyline(pr,"Пробег","тыс.км",M,lambda col,p,r=r_eff,e=ec:f"{prodref('trips_h',e)}*{col}{r}*2*{inp('haul',e)}/1000")
     prdy[i]={"ktg":r_ktg,"kio":r_kio,"eff":r_eff,"t":r_t,"tkm":r_tkm,"run":r_run}
     pr+=1
 def prodyref(key,i,p): return f"'{S_PROD}'!{PCOLS[p]}{prdy[i][key]}"
@@ -598,8 +638,8 @@ for i in range(NM):
         put("ktg", (f"{pyr('ktg',i,p)}" if p>0 else "0"), P1)
         put("eff", f"{pc('kfv')}*{col}{rowmap['ktg']}*(1-{DT_TOTAL}/(60*{pc('shift')}))", M)
         put("t", f"{prodref('t_h',ec)}*{col}{rowmap['eff']}/1000", M)
-        put("tkm", f"{col}{rowmap['t']}*{pc('dist')}", M)
-        put("run", f"{prodref('trips_h',ec)}*{col}{rowmap['eff']}*2*{pc('dist')}/1000", M)
+        put("tkm", f"{col}{rowmap['t']}*{inp('haul',ec)}", M)
+        put("run", f"{prodref('trips_h',ec)}*{col}{rowmap['eff']}*2*{inp('haul',ec)}/1000", M)
         put("fuel", f"{col}{rowmap['tkm']}*{pc('fuel_r')}/1000*{pc('fuel_p')}*(1+{pc('esc_fuel')})^({per}-1)", M)
         put("maint", (f"{pyr('toir',i,p)}*{toir_rate(i)}" if p>0 else "0"), M)
         put("tire", f"{col}{rowmap['run']}*{pc('tire_r')}*{pc('tire_p')}*(1+{pc('esc_parts')})^({per}-1)", M)
@@ -681,7 +721,13 @@ aadd("avgt","Средний годовой объём перевозки","ты�
 asec("УДЕЛЬНЫЙ АННУИТЕТ (руб/ткм) — ГЛАВНЫЙ КРИТЕРИЙ")
 # NPV [тыс.руб] / S / avgtkm [тыс.ткм] = руб/ткм (множители 1000 сокращаются)
 def anntkm(nkey): return lambda i:f"{aref(nkey,acol(i))}/{pc('S')}/{aref('avgtkm',acol(i))}"
-aadd("u_inv","Инвестиционный","руб/ткм",anntkm('n_inv'),M2)
+# Инвестиционный аннуитет — метод эквивалентной годовой стоимости (EAC): CAPEX
+# аннуитизируется по СОБСТВЕННОМУ сроку службы LIFE[i] (20/10/12/8/10/10),
+# поэтому долгоживущий NTE 240 (20 лет) несёт меньшую удельную нагрузку инвестиций,
+# а короткоживущий TZCO (8 лет) — большую. Операционные — на общем 10-летнем горизонте.
+def Si(i): return "("+PVAF(pc('disc'),inp('life',acol(i)))+")"
+def anntkm_inv(i): return f"{aref('n_inv',acol(i))}/{Si(i)}/{aref('avgtkm',acol(i))}"
+aadd("u_inv","Инвестиционный (по сроку службы)","руб/ткм",anntkm_inv,M2)
 aadd("u_fuel","Топливо","руб/ткм",anntkm('n_fuel'),M2)
 aadd("u_maint","ТОиР + капремонты","руб/ткм",anntkm('n_maint'),M2)
 aadd("u_tire","Шины","руб/ткм",anntkm('n_tire'),M2)
@@ -689,11 +735,11 @@ aadd("u_pers","Персонал","руб/ткм",anntkm('n_pers'),M2)
 aadd("u_ttax","Транспортный налог","руб/ткм",anntkm('n_ttax'),M2)
 aadd("u_tax","Налог на прибыль (щит)","руб/ткм",anntkm('n_tax'),M2)
 aadd("u_op","Операционный аннуитет","руб/ткм",anntkm('n_op'),M2,bold=True)
-aadd("u_tot","ОБЩИЙ АННУИТЕТ","руб/ткм",anntkm('n_tot'),M2,res=True)
+aadd("u_tot","ОБЩИЙ АННУИТЕТ","руб/ткм",lambda i:f"{aref('u_inv',acol(i))}+{aref('u_op',acol(i))}",M2,res=True)
 
 asec("ДОПОЛНИТЕЛЬНЫЕ ПОКАЗАТЕЛИ")
 aadd("t_tot","Удельный аннуитет на тонну","руб/т",
-     lambda i:f"{aref('u_tot',acol(i))}*{pc('dist')}",M2,bold=True)
+     lambda i:f"{aref('u_tot',acol(i))}*{inp('haul',acol(i))}",M2,bold=True)
 aadd("sebest","Себестоимость (без дисконта)","руб/ткм",
      lambda i:f"AVERAGE({cfrng(i,'cash')})/{aref('avgtkm',acol(i))}",M2)
 aadd("cap_share","Доля инвестиций в аннуитете","%",
@@ -787,7 +833,7 @@ print("Сравнение:",len(mrow))
 # ДАШБОРД
 # ================================================================= #
 wd=wb.create_sheet(S_DASH); wd.sheet_view.showGridLines=False
-title(wd,"ИТОГОВЫЙ ДАШБОРД — СРАВНЕНИЕ АВТОСАМОСВАЛОВ","Ключевые показатели и графики. Данные обновляются автоматически.",last="N")
+title(wd,"ИТОГОВЫЙ ДАШБОРД — СРАВНЕНИЕ АВТОСАМОСВАЛОВ",VER_LABEL+". Ключевые показатели и графики; данные обновляются автоматически.",last="N")
 for col,w in (("A",2),("B",22),("C",22),("D",22),("E",22),("F",6),("G",13),("H",13),("I",15),("J",13)):
     wd.column_dimensions[col].width=w
 UT=f"'{S_ANN}'!D{ar['u_tot']}:{LC}{ar['u_tot']}"
@@ -858,9 +904,12 @@ base=[
  ("b_inv","— инвестиционный","руб/ткм",selann("u_inv"),M2),
  ("b_fuel","— топливо","руб/ткм",selann("u_fuel"),M2),
  ("b_maint","— ТОиР + капремонты","руб/ткм",selann("u_maint"),M2),
+ ("b_tire","— шины","руб/ткм",selann("u_tire"),M2),
  ("b_pers","— персонал","руб/ткм",selann("u_pers"),M2),
  ("b_tkm","Средний годовой грузооборот","тыс.ткм",selann("avgtkm"),M),
  ("b_price","Стоимость (руб)","тыс.руб",f"INDEX('{S_PROD}'!D{prd['price_rub']}:{LC}{prd['price_rub']},{SEL})",M),
+ ("b_life","Срок службы (EAC)","лет",f"INDEX('{S_IN}'!D{irow['life']}:{LC}{irow['life']},{SEL})",M),
+ ("b_haul","Плечо откатки","км",f"INDEX('{S_IN}'!D{irow['haul']}:{LC}{irow['haul']},{SEL})",NUM),
  ("b_fix","Постоянные (инв+ТОиР+перс+налоги)","руб/ткм",
    f"{selann('u_inv')}+{selann('u_maint')}+{selann('u_pers')}+{selann('u_ttax')}+{selann('u_tax')}",M2),
  ("b_var","Переменные (топливо+шины)","руб/ткм",f"{selann('u_fuel')}+{selann('u_tire')}",M2),
@@ -874,20 +923,22 @@ for key,label,unit,fml,fmt in base:
     b+=1
 def br(key): return f"$D${brow[key]}"
 TAX=pc('tax'); DSF=pc('dsf')
-tr=b+1; section(ws,tr,"ТОРНАДО: ВЛИЯНИЕ ДРАЙВЕРОВ НА ОБЩИЙ АННУИТЕТ (руб/ткм)","B","H"); tr+=1
-for i,h in enumerate(["Драйвер","Диапазон","При снижении","При росте","Размах"]):
+tr=b+1; section(ws,tr,"ТОРНАДО: ВЛИЯНИЕ ДРАЙВЕРОВ НА ОБЩИЙ АННУИТЕТ (руб/ткм) — жёлтый «Диапазон ±» редактируется","B","H"); tr+=1
+for i,h in enumerate(["Драйвер","Диапазон ±","При снижении","При росте","Размах"]):
     c=ws.cell(row=tr,column=2+i,value=h); c.font=FHd; c.fill=Fh; c.border=BD; c.alignment=C
 tr+=1
+# «net» — посленалоговое влияние драйвера на аннуитет; диапазон ± задаётся ЖЁЛТОЙ ячейкой
 drivers=[("Расход / цена ДТ",0.20,f"{br('b_fuel')}*(1-{TAX})"),
          ("Затраты на ТОиР/ремонты",0.25,f"{br('b_maint')}*(1-{TAX})"),
          ("Цена приобретения",0.15,f"{br('b_inv')}*(1-{TAX}*{DSF})"),
+         ("Производительность (плечо/КТГ)",0.15,f"{br('b_fix')}"),
          ("Расходы на персонал",0.15,f"{br('b_pers')}*(1-{TAX})")]
 ttop=tr
 for label,pct,net in drivers:
     ws.cell(row=tr,column=2,value=label).font=FN; ws.cell(row=tr,column=2).border=BD; ws.cell(row=tr,column=2).alignment=L
-    ws.cell(row=tr,column=3,value=f"±{int(pct*100)}%").alignment=C; ws.cell(row=tr,column=3).border=BD; ws.cell(row=tr,column=3).font=FN
-    ws.cell(row=tr,column=4,value=f"={br('b_tot')}-{pct}*({net})")
-    ws.cell(row=tr,column=5,value=f"={br('b_tot')}+{pct}*({net})")
+    rc=ws.cell(row=tr,column=3,value=pct); rc.alignment=C; rc.border=BD; rc.font=FB; rc.fill=Fi; rc.number_format=P1
+    ws.cell(row=tr,column=4,value=f"={br('b_tot')}-C{tr}*({net})")
+    ws.cell(row=tr,column=5,value=f"={br('b_tot')}+C{tr}*({net})")
     ws.cell(row=tr,column=6,value=f"=E{tr}-D{tr}")
     for col in (4,5,6):
         cc=ws.cell(row=tr,column=col); cc.number_format=M2; cc.border=BD; cc.alignment=Rr; cc.font=FN
@@ -926,17 +977,69 @@ ur+=1
 ws.cell(row=ur,column=2,value="Общий аннуитет, руб/ткм (оценка)").font=FB; ws.cell(row=ur,column=2).border=BD; ws.cell(row=ur,column=2).alignment=L
 for j,rt in enumerate(rates):
     col=get_column_letter(3+j)
-    pvaf=f"(1-(1+{col}{ur-1})^-{pc('horizon')})/{col}{ur-1}"
+    pvaf=f"(1-(1+{col}{ur-1})^-{br('b_life')})/{col}{ur-1}"
     resid_sel=f"INDEX('{S_IN}'!D{irow['resid']}:{LC}{irow['resid']},{SEL})"
-    inv_ann=f"{br('b_price')}*(1-{resid_sel}/(1+{col}{ur-1})^{pc('horizon')})/({pvaf})/{br('b_tkm')}"
+    inv_ann=f"{br('b_price')}*(1-{resid_sel}/(1+{col}{ur-1})^{br('b_life')})/({pvaf})/{br('b_tkm')}"
     c=ws.cell(row=ur,column=3+j,value=f"={inv_ann}+{br('b_tot')}-{br('b_inv')}")
     c.number_format=M2; c.border=BD; c.alignment=Rr; c.font=FB
     if abs(rt-0.12)<1e-9: c.fill=Fr
 ur+=2
-ws.cell(row=ur,column=2,value="Оценка по ставке: инвестиционный аннуитет пересчитан точно, операционный принят "
-        "постоянным (аннуитет равномерного потока ≈ инвариантен к ставке).").font=FU
+ws.cell(row=ur,column=2,value="Оценка по ставке: инвестиционный аннуитет пересчитан точно по СРОКУ СЛУЖБЫ выбранной "
+        "машины, операционный принят постоянным (аннуитет равномерного потока ≈ инвариантен к ставке).").font=FU
 ws.merge_cells(f"B{ur}:H{ur}"); ws[f"B{ur}"].alignment=L
-print("Чувствительность готова")
+ur+=2
+
+# ---------- ИНТЕРАКТИВНЫЙ СЦЕНАРНЫЙ КАЛЬКУЛЯТОР -----------------------------
+section(ws,ur,"ИНТЕРАКТИВНЫЙ КАЛЬКУЛЯТОР СЦЕНАРИЯ (меняйте жёлтые ячейки — результат пересчитывается)","B","H"); ur+=1
+ws.cell(row=ur,column=2,value="Драйвер (множитель к базе)").font=FHd
+ws.cell(row=ur,column=3,value="Множитель").font=FHd
+ws.cell(row=ur,column=4,value="Влияние на аннуитет, руб/ткм").font=FHd
+for cc in (2,3,4): c=ws.cell(row=ur,column=cc); c.fill=Fh; c.border=BD; c.alignment=C; c.font=FHd
+ws.merge_cells(f"D{ur}:F{ur}")
+ur+=1
+# редактируемые множители сценария (1,00 = база)
+scen=[("m_ktg","Производительность / КТГ, ×",1.00,"b_fix",True),
+      ("m_fuel","Цена / расход ДТ, ×",1.00,"b_fuel",False),
+      ("m_toir","Затраты на ТОиР, ×",1.00,"b_maint",False),
+      ("m_price","Цена приобретения, ×",1.00,"b_inv",False),
+      ("m_disc","Ставка дисконтирования, ×",1.00,"b_inv",False)]
+srow={}
+for key,label,dflt,comp,is_prod in scen:
+    srow[key]=ur
+    ws.cell(row=ur,column=2,value=label).font=FN; ws.cell(row=ur,column=2).border=BD; ws.cell(row=ur,column=2).alignment=L
+    mc=ws.cell(row=ur,column=3,value=dflt); mc.fill=Fi; mc.border=BD; mc.alignment=C; mc.font=FB; mc.number_format=M2
+    ur+=1
+def sc(key): return f"$C${srow[key]}"
+# Итоговый аннуитет сценария для выбранной машины:
+#   фикс. часть (инв+ТОиР+перс+налоги) масштабируется производительностью 1/m_ktg,
+#   ТОиР и инвестиции — своими множителями; топливо — множителем ДТ.
+ur+=0
+ws.cell(row=ur,column=2,value="АННУИТЕТ СЦЕНАРИЯ (выбранная машина)").font=FB
+ws.cell(row=ur,column=2).border=BD; ws.cell(row=ur,column=2).alignment=L
+# scenario annuity: (b_var*m_fuel_on_fuel + fixed adjusted)/m_ktg productivity effect
+scen_fuel=f"{br('b_fuel')}*{sc('m_fuel')}+{br('b_tire')}"
+scen_maint=f"{br('b_maint')}*{sc('m_toir')}"
+scen_inv=f"{br('b_inv')}*{sc('m_price')}*{sc('m_disc')}"
+# фикс.часть = заменяем инв и ТОиР их сценарными версиями, прочее (перс+налоги) = b_fix−b_inv−b_maint
+scen_fix=f"({scen_inv}+{scen_maint}+{br('b_fix')}-{br('b_inv')}-{br('b_maint')})"
+scen_tot=f"({scen_fix}+{scen_fuel})/{sc('m_ktg')}"
+res_cell=ws.cell(row=ur,column=3,value=f"={scen_tot}")
+res_cell.fill=Fr; res_cell.border=BD; res_cell.alignment=C; res_cell.font=Font(size=12,bold=True,color=DARK); res_cell.number_format=M2
+ws.cell(row=ur,column=4,value=f"=IF(C{ur}<{br('b_tot')},\"▼ лучше базы на \"&TEXT({br('b_tot')}-C{ur},\"0.00\")&\" руб/ткм\",\"▲ хуже базы на \"&TEXT(C{ur}-{br('b_tot')},\"0.00\")&\" руб/ткм\")").font=Font(bold=True,color=ACC)
+ws.merge_cells(f"D{ur}:H{ur}"); ws[f"D{ur}"].alignment=L
+# нужны b_ttax, b_tax в base — добавить ссылки
+ur+=2
+ws.cell(row=ur,column=2,value="Базовый аннуитет (для сравнения):").font=FN; ws.cell(row=ur,column=2).alignment=L
+ws.cell(row=ur,column=3,value=f"={br('b_tot')}").number_format=M2; ws.cell(row=ur,column=3).font=FB; ws.cell(row=ur,column=3).alignment=C
+ws.merge_cells(f"B{ur}:B{ur}")
+ur+=2
+for note in ["Множитель 1,00 = базовый сценарий. Пример: КТГ ×1,10 → +10% производительности → все постоянные затраты "
+             "на ткм снижаются; ДТ ×1,15 → +15% к топливной составляющей; Цена ×0,90 → скидка 10%.",
+             "Ставка дисконтирования ×: приближённо масштабирует инвестиционную составляющую (точный расчёт — в таблице ставок выше).",
+             "Все зависимые ячейки (дашборд, сравнение) обновляются при пересчёте книги; в мобильных просмотрщиках "
+             "без пересчёта показываются кэшированные значения базового сценария."]:
+    ws.merge_cells(f"B{ur}:H{ur}"); ws.cell(row=ur,column=2,value="•  "+note).font=FU; ws.cell(row=ur,column=2).alignment=L; ur+=1
+print("Чувствительность (интерактивная) готова")
 
 # ================================================================= #
 # АНАЛИТИКА
@@ -1133,7 +1236,8 @@ order=[S_MET,S_DASH,S_PAR,S_IN]+TPL_NAMES+[S_PYR,S_PROD,S_CF,S_ANN,S_CMP,S_ANL,S
 wb._sheets.sort(key=lambda s:order.index(s.title))
 wb.active=1
 wb.calculation.fullCalcOnLoad=True
-OUT="Модель_TCO_автосамосвалов_аннуитет.xlsx"
+OUT=("Модель_TCO_автосамосвалов_ПОСТАВЩИК.xlsx" if MODE=="supplier"
+     else "Модель_TCO_автосамосвалов_ПРОИЗВОДСТВО.xlsx")
 wb.save(OUT)
 try:
     from inject_cache import inject
